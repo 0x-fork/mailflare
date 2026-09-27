@@ -561,6 +561,7 @@ export const backupSettings = sqliteTable("backup_settings", {
 	scheduleValue: integer("schedule_value"),
 	retentionEnabled: integer("retention_enabled", { mode: "boolean" }).notNull().default(false),
 	retentionDays: integer("retention_days").notNull().default(30),
+	excludedTableGroups: text("excluded_table_groups").notNull().default("[]"),
 	updatedAt: integer("updated_at", { mode: "timestamp" })
 		.notNull()
 		.$defaultFn(() => new Date()),
@@ -685,6 +686,7 @@ export const agentDraftMetadata = sqliteTable("agent_draft_metadata", {
 	sourceMessageId: text("source_message_id").references(() => messages.id, { onDelete: "set null" }),
 	revision: integer("revision").notNull().default(1),
 	humanEditedAt: integer("human_edited_at", { mode: "timestamp" }),
+	scheduledAt: integer("scheduled_at", { mode: "timestamp" }),
 	createdAt: integer("created_at", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
 });
 

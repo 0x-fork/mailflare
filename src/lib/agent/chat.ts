@@ -29,7 +29,7 @@ export async function getAgentChatHistory(context: AgentToolContext, conversatio
 	return getDb(context.env).select().from(agentChatMessages).where(eq(agentChatMessages.conversationId, conversationId)).orderBy(asc(agentChatMessages.createdAt)).limit(200);
 }
 
-export async function createAgentChatStream(context: AgentToolContext, text: string, conversationId?: string, signal?: AbortSignal) {
+export async function createAgentChatStream(context: AgentToolContext, text: string, conversationId?: string, signal?: AbortSignal, timeZone?: string) {
 	const db = getDb(context.env);
 	const access = await getMailboxAccessLevel(db, context.user, context.mailboxId);
 	if (!access?.canRead) throw new Error("Mailbox not found");
@@ -53,7 +53,7 @@ export async function createAgentChatStream(context: AgentToolContext, text: str
 		description: emailToolDescriptions[name], inputSchema: emailToolSchemas[name],
 		execute: async (input: unknown) => runEmailTool(context, name, input),
 	}]));
-	const result = streamText({ model: selection.model, system: agentSystemPrompt(settings?.instructions ?? ""), messages: prompt, tools, stopWhen: stepCountIs(5), maxOutputTokens: 1200, abortSignal: signal, onStepFinish: async ({ usage }) => { await recordAiUsage({ env: context.env, details: selection, usage, source: "chat" }); } });
+	const result = streamText({ model: selection.model, system: agentSystemPrompt(settings?.instructions ?? "", timeZone), messages: prompt, tools, stopWhen: stepCountIs(7), maxOutputTokens: 1200, abortSignal: signal, onStepFinish: async ({ usage }) => { await recordAiUsage({ env: context.env, details: selection, usage, source: "chat" }); } });
 	const encoder = new TextEncoder();
 	const id = conversation.id;
 	const stream = new ReadableStream<Uint8Array>({

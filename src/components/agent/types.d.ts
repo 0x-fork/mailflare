@@ -9,9 +9,11 @@ export type AgentEvent =
 
 export type AgentMessage = { id: string; role: "user" | "assistant" | "system" | "tool" | "reasoning"; content: string; toolName?: string | null; toolState?: "running" | "used" | "failed"; recordId?: string; createdAt?: string; durationMs?: number; pending?: boolean };
 export type AgentEmailReference = { id: string; subject?: string | null; status?: string; from?: string; snippet?: string; url?: string };
+export type AgentEmailLinkProps = { email: AgentEmailReference; className: string };
 export type AgentActionProposal = { action: "move_email" | "move_emails" | "mark_email_read" | "discard_draft"; status: "pending_approval" | "processing" | "approved"; emailId?: string; emailIds?: string[]; destination?: string; read?: boolean; draftId?: string; expectedRevision?: number; emails?: AgentEmailReference[] };
 export type AgentTurn = { id: string; user: AgentMessage | null; assistant: AgentMessage | null; activity: AgentMessage[]; durationMs: number | null; running: boolean };
-export type AgentTurnProps = { turn: AgentTurn; onOpenDraft: (draftId: string) => void; onApproveDraft: (draftId: string, revision: number) => void; onApproveAction: (item: AgentMessage) => void; approvingId: string | null };
+export type AgentDraftAction = { messageId: string; draftId: string; revision: number; scheduledAt: string | null };
+export type AgentTurnProps = { turn: AgentTurn; draftActions: AgentDraftAction[]; onOpenDraft: (draftId: string) => void; onApproveDraft: (draftId: string, revision: number) => void; onApproveAction: (item: AgentMessage) => void; approvingId: string | null };
 
 export type AgentSettings = { mailboxId: string; enabled: boolean; modelId: string | null; autoDraftEnabled: boolean; reviewerUserId: string | null; instructions: string; dailyLimit: number };
 

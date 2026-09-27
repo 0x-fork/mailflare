@@ -50,6 +50,8 @@ next-env.d.ts
 
 # wrangler files
 .wrangler
+.wrangler.dev.json
+.wrangler.dev.json.*.tmp
 .dev.vars*
 
 

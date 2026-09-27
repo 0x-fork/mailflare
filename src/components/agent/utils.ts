@@ -1,5 +1,5 @@
 import type { KeyboardEvent } from "react";
-import type { AgentActionProposal, AgentEmailReference, AgentEvent, AgentMessage, AgentTurn } from "./types";
+import type { AgentActionProposal, AgentDraftAction, AgentEmailReference, AgentEvent, AgentMessage, AgentTurn } from "./types";
 
 export async function consumeAgentStream(response: Response, onEvent: (event: AgentEvent) => void) {
 	if (!response.body) throw new Error("Assistant stream is unavailable");
@@ -27,6 +27,27 @@ export function draftFromToolContent(content: string) {
 	if (!content.startsWith("{")) return null;
 	try { return draftFromToolResult(JSON.parse(content)); }
 	catch { return null; }
+}
+
+export function uniqueAgentDraftActions(messages: AgentMessage[]): AgentDraftAction[] {
+	const byDraft = new Map<string, AgentDraftAction>();
+	for (const item of messages) {
+		if (item.role !== "tool" || item.toolState === "running" || item.toolState === "failed") continue;
+		const result = parseAgentToolContent(item.content);
+		if (result?.status === "sent" && typeof result.draftId === "string") {
+			byDraft.delete(result.draftId);
+			continue;
+		}
+		const draft = result ? draftFromToolResult(result) : null;
+		if (!result || !draft) continue;
+		const current = byDraft.get(draft.draftId);
+		if (current && draft.revision < current.revision) continue;
+		const scheduledAt = Object.prototype.hasOwnProperty.call(result, "scheduledAt")
+			? (typeof result.scheduledAt === "string" && result.scheduledAt ? result.scheduledAt : null)
+			: (current?.scheduledAt ?? null);
+		byDraft.set(draft.draftId, { messageId: item.id, draftId: draft.draftId, revision: draft.revision, scheduledAt });
+	}
+	return [...byDraft.values()];
 }
 
 export function markAgentDraftSent(messages: AgentMessage[], draftId: string): AgentMessage[] {
@@ -57,9 +78,17 @@ export function resizeAgentInput(input: HTMLTextAreaElement | null) {
 	const spacing = parseFloat(style.paddingTop) + parseFloat(style.paddingBottom) + parseFloat(style.borderTopWidth) + parseFloat(style.borderBottomWidth);
 	const minHeight = lineHeight + spacing;
 	const maxHeight = lineHeight * 4 + spacing;
+	if (!input.value) {
+		input.style.height = `${minHeight}px`;
+		return;
+	}
 	input.style.height = "auto";
 	input.style.height = `${Math.min(maxHeight, Math.max(minHeight, input.scrollHeight + parseFloat(style.borderTopWidth) + parseFloat(style.borderBottomWidth)))}px`;
 	input.style.overflowY = input.scrollHeight + parseFloat(style.borderTopWidth) + parseFloat(style.borderBottomWidth) > maxHeight ? "auto" : "hidden";
+}
+
+export function isAgentScrollAtBottom(container: HTMLElement): boolean {
+	return container.scrollHeight - container.scrollTop - container.clientHeight <= 2;
 }
 
 export function shouldSubmitAgentInput(event: KeyboardEvent<HTMLTextAreaElement>) {
@@ -125,6 +154,17 @@ export function agentEmailHref(email: Pick<AgentEmailReference, "id" | "status" 
 	if (email.url?.startsWith("/") && !email.url.startsWith("//")) return email.url;
 	const folder = email.status === "sent" || email.status === "archived" || email.status === "trash" || email.status === "spam" || email.status === "draft" ? email.status === "draft" ? "drafts" : email.status : "inbox";
 	return `/${folder}/${encodeURIComponent(email.id)}`;
+}
+
+export function agentDraftIdFromHref(href: string | null | undefined): string | null {
+	const match = /^\/drafts\/([^/?#]+)\/?(?:[?#].*)?$/.exec(href ?? "");
+	if (!match) return null;
+	try { return decodeURIComponent(match[1]); }
+	catch { return null; }
+}
+
+export function agentDraftIdForEmail(email: Pick<AgentEmailReference, "id" | "status" | "url">): string | null {
+	return email.status === "draft" ? email.id : agentDraftIdFromHref(email.url);
 }
 
 export function parseAgentToolContent(content: string): Record<string, unknown> | null {

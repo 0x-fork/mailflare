@@ -12,7 +12,7 @@
     "deploy:worker": "OPEN_NEXT_DEPLOY=true wrangler deploy",
     "deploy:local": "npm run deploy",
     "upload": "npm run db:bundle && opennextjs-cloudflare build && OPEN_NEXT_DEPLOY=true wrangler versions upload",
-    "preview": "npm run db:bundle && opennextjs-cloudflare build && opennextjs-cloudflare preview",
+    "preview": "npm run db:bundle && opennextjs-cloudflare build && OPEN_NEXT_DEPLOY=true wrangler dev",
     "cf-typegen": "wrangler types --env-interface CloudflareEnv ./cloudflare-env.d.ts",
     "db:bundle": "node scripts/generate-migration-bundle.mjs",
     "db:generate": "drizzle-kit generate",

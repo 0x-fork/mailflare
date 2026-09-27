@@ -123,6 +123,7 @@ export function ComposeForm({
 
 				setDraftId(draft.id);
 				setAgentRevision(draft.agent?.revision ?? null);
+				setScheduledAt(draft.agent?.scheduledAt ? new Date(draft.agent.scheduledAt) : null);
 				setTo(headerToRecipients(draft.toAddr));
 				const draftCc = headerToRecipients(draft.ccAddr);
 				const draftBcc = headerToRecipients(draft.bccAddr);
@@ -242,14 +243,18 @@ export function ComposeForm({
 		setLoading(true);
 		const fullHtml = joinQuotedHtml(html, quotedHtml);
 		if (draftId && agentRevision !== null) {
-			if (attachments.length > 0 || scheduledAt) {
-				setLoading(false);
-				setToast({ type: "error", message: "AI drafts with new attachments or a schedule need to be sent as a new manual message" });
-				return;
-			}
 			try {
 				if (saveTimer.current) clearTimeout(saveTimer.current);
-				const updated = await authFetch(`/api/drafts/${draftId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ mailboxId: selectedMailbox?.id, from: fromAddr, to: recipientsToHeader(to), cc: recipientsToHeader(cc), bcc: recipientsToHeader(bcc), subject, html: fullHtml, text: htmlToPlainText(fullHtml), inReplyTo: threading?.inReplyTo ?? null, references: threading?.references ?? null, threadId: threading?.threadId ?? null }) });
+				if (attachments.length > 0) {
+					const form = new FormData();
+					for (const attachment of attachments) form.append("attachments", attachment.file);
+					const uploaded = await authFetch(`/api/drafts/${draftId}/attachments`, { method: "POST", body: form });
+					const result = await uploaded.json() as { attachments?: ComposeStoredAttachment[]; error?: string };
+					if (!uploaded.ok) throw new Error(result.error || "Could not add attachments to the draft");
+					setStoredAttachments((current) => [...current, ...(result.attachments ?? [])]);
+					setAttachments([]);
+				}
+				const updated = await authFetch(`/api/drafts/${draftId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ mailboxId: selectedMailbox?.id, from: fromAddr, to: recipientsToHeader(to), cc: recipientsToHeader(cc), bcc: recipientsToHeader(bcc), subject, html: fullHtml, text: htmlToPlainText(fullHtml), inReplyTo: threading?.inReplyTo ?? null, references: threading?.references ?? null, threadId: threading?.threadId ?? null, scheduledAt: scheduledAt?.toISOString() ?? null }) });
 				if (!updated.ok) throw new Error("Could not save the draft for review");
 				const current = await fetchDraft(draftId);
 				if (!current.agent) throw new Error("AI draft metadata is missing");
@@ -613,7 +618,7 @@ export function ComposeForm({
 									disabled={loading || loadingDraft || !fromAddr}
 									className="rounded-r-none px-4"
 								>
-									{loading ? "Sending" : scheduledAt ? "Schedule" : "Send"}
+									{loading ? "Preparing…" : scheduledAt ? "Schedule" : agentRevision !== null ? "Review send" : "Send"}
 								</Button>
 								<ScheduleSendMenu
 									disabled={loading || loadingDraft || !fromAddr}

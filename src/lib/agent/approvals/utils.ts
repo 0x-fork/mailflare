@@ -23,7 +23,7 @@ async function currentDraft(env: CloudflareEnv, user: SessionUser, draftId: stri
 	return { draft, metadata };
 }
 
-async function snapshot(env: CloudflareEnv, draft: typeof messages.$inferSelect): Promise<{ payload: AgentSendSnapshot; hash: string }> {
+async function snapshot(env: CloudflareEnv, draft: typeof messages.$inferSelect, scheduledAt: Date | null): Promise<{ payload: AgentSendSnapshot; hash: string }> {
 	const db = getDb(env);
 	const rows = await db.select().from(messageAttachments).where(eq(messageAttachments.messageId, draft.id));
 	const attachments: AgentSendSnapshot["attachments"] = [];
@@ -37,7 +37,7 @@ async function snapshot(env: CloudflareEnv, draft: typeof messages.$inferSelect)
 		from: draft.fromAddr, to: draft.toAddr, cc: draft.ccAddr, bcc: draft.bccAddr,
 		subject: draft.subject ?? "", text: draft.textBody, html: draft.htmlBody,
 		inReplyTo: draft.inReplyTo, references: draft.references, threadId: draft.threadId,
-		mailboxId: draft.mailboxId!, attachments,
+		mailboxId: draft.mailboxId!, scheduledAt: scheduledAt?.toISOString() ?? null, attachments,
 	};
 	if (!payload.to.trim() || !payload.subject.trim() || !(payload.text?.trim() || payload.html?.trim())) throw new Error("Draft is incomplete");
 	return { payload, hash: await sha256(JSON.stringify(payload)) };
@@ -46,9 +46,10 @@ async function snapshot(env: CloudflareEnv, draft: typeof messages.$inferSelect)
 export async function requestAgentSend(env: CloudflareEnv, user: SessionUser, draftId: string, expectedRevision: number, requestKeyId?: string) {
 	const { draft, metadata } = await currentDraft(env, user, draftId);
 	if (metadata.revision !== expectedRevision) throw new Error("Draft changed; reopen it for review");
+	if (metadata.scheduledAt && metadata.scheduledAt.getTime() <= Date.now()) throw new Error("Scheduled time has passed; update the draft before review");
 	const [existing] = await getDb(env).select({ id: agentSendApprovals.id }).from(agentSendApprovals).where(and(eq(agentSendApprovals.draftId, draftId), inArray(agentSendApprovals.status, ["claimed", "sent", "unknown"]))).limit(1);
 	if (existing) throw new Error("This draft has a delivery already in progress or awaiting reconciliation");
-	const { payload, hash } = await snapshot(env, draft);
+	const { payload, hash } = await snapshot(env, draft, metadata.scheduledAt);
 	const id = newId("approval");
 	const expiresAt = new Date(Date.now() + 15 * 60_000);
 	await getDb(env).insert(agentSendApprovals).values({ id, draftId, mailboxId: draft.mailboxId!, userId: user.id, requestKeyId: requestKeyId ?? null, revision: expectedRevision, payloadHash: hash, expiresAt });
@@ -63,8 +64,8 @@ export async function getAgentSendRequest(env: CloudflareEnv, user: SessionUser,
 	if (approval.status === "pending") {
 		try {
 			const { draft, metadata } = await currentDraft(env, user, approval.draftId);
-			const read = await snapshot(env, draft);
-			stale = metadata.revision !== approval.revision || read.hash !== approval.payloadHash;
+			const read = await snapshot(env, draft, metadata.scheduledAt);
+			stale = metadata.revision !== approval.revision || read.hash !== approval.payloadHash || !!(metadata.scheduledAt && metadata.scheduledAt.getTime() <= Date.now());
 			if (!stale) current = read.payload;
 		} catch { stale = true; }
 	}
@@ -81,8 +82,9 @@ export async function confirmAgentSend(env: CloudflareEnv, user: SessionUser, ap
 		throw new Error("Approval expired");
 	}
 	const { draft, metadata } = await currentDraft(env, user, approval.draftId);
-	const current = await snapshot(env, draft);
+	const current = await snapshot(env, draft, metadata.scheduledAt);
 	if (metadata.revision !== approval.revision || current.hash !== approval.payloadHash) throw new Error("Draft changed; review it again");
+	if (metadata.scheduledAt && metadata.scheduledAt.getTime() <= Date.now()) throw new Error("Scheduled time has passed; update the draft before confirming");
 	const claimed = await db.update(agentSendApprovals).set({ status: "claimed", claimedAt: new Date() }).where(and(eq(agentSendApprovals.id, approvalId), eq(agentSendApprovals.status, "pending"))).returning({ id: agentSendApprovals.id });
 	if (!claimed.length) return getAgentSendRequest(env, user, approvalId);
 	try {
@@ -92,10 +94,11 @@ export async function confirmAgentSend(env: CloudflareEnv, user: SessionUser, ap
 			subject: draft.subject || "", text: draft.textBody || undefined, html: draft.htmlBody || undefined,
 		inReplyTo: draft.inReplyTo, references: draft.references, threadId: draft.threadId,
 			attachments: await loadMessageAttachmentContents(env, draft.id),
+			scheduledAt: metadata.scheduledAt ?? undefined,
 		});
 		await db.update(agentSendApprovals).set({ status: "sent", messageId: result.messageId }).where(eq(agentSendApprovals.id, approvalId));
 		await db.update(messages).set({ status: "trash" }).where(and(eq(messages.id, draft.id), eq(messages.status, "draft")));
-		return { status: "sent", messageId: result.messageId };
+		return { status: "sent", messageId: result.messageId, scheduled: !!result.scheduled };
 	} catch (error) {
 		await db.update(agentSendApprovals).set({ status: "unknown" }).where(eq(agentSendApprovals.id, approvalId));
 		throw new Error(`Delivery outcome needs review: ${error instanceof Error ? error.message : "provider error"}`);

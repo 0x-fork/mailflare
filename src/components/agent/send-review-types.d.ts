@@ -6,6 +6,7 @@ export type ReviewSnapshot = {
 	subject: string;
 	text: string | null;
 	html: string | null;
+	scheduledAt: string | null;
 	attachments: { id: string; filename: string; size: number }[];
 };
 

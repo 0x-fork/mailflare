@@ -1,19 +1,19 @@
-import { and, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { createMcpHandler, McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import { getDb } from "@/db";
-import { agentDraftMetadata, agentSendApprovals, messages } from "@/db/schema";
-import { getMailboxAccessLevel, listAccessibleMailboxes } from "@/lib/mailboxes/access";
+import { agentSendApprovals, messages } from "@/db/schema";
+import { listAccessibleMailboxes } from "@/lib/mailboxes/access";
 import { runEmailTool, EMAIL_TOOL_NAMES, emailToolDescriptions, emailToolSchemas } from "@/lib/agent/tools";
+import { editAgentDraft } from "@/lib/agent/edit-draft";
 import { requestAgentSend, getAgentSendRequest } from "@/lib/agent/approvals/utils";
-import { buildSnippet } from "@/lib/email/parse";
 import type { EmailToolName } from "@/lib/agent/types";
 import type { McpPrincipal } from "./types";
 import { registerAdminMcpTools } from "./admin-tools";
 
 const scopeByTool: Record<EmailToolName, string> = {
 	list_emails: "mcp:read", get_email: "mcp:read", get_thread: "mcp:read", search_emails: "mcp:read",
-	draft_email: "mcp:draft", draft_reply: "mcp:draft", mark_email_read: "mcp:organize", move_email: "mcp:organize", discard_draft: "mcp:draft",
+	draft_email: "mcp:draft", draft_reply: "mcp:draft", edit_draft: "mcp:draft", review_draft_send: "mcp:request-send", mark_email_read: "mcp:organize", move_email: "mcp:organize", move_emails: "mcp:organize", discard_draft: "mcp:draft",
 };
 
 function output(value: unknown, isError = false) {
@@ -30,24 +30,18 @@ export function createMailflareMcpHandler(env: CloudflareEnv, principal: McpPrin
 			return output(accessible.filter((row) => principal.mailboxIds.includes(row.id)).map(({ id, localPart, hostname, displayName }) => ({ id, address: `${localPart}@${hostname}`, displayName })));
 		});
 		for (const name of EMAIL_TOOL_NAMES) {
+			if (name === "edit_draft" || name === "review_draft_send") continue;
 			server.registerTool(name, { description: emailToolDescriptions[name], inputSchema: z.object({ mailboxId: z.string().min(1), ...emailToolSchemas[name].shape }) }, async (args) => {
 				if (!principal.scopes.includes(scopeByTool[name]) || !principal.mailboxIds.includes(args.mailboxId)) return output({ error: "Permission denied" }, true);
 				try { return output(await runEmailTool({ env, user: principal.user, mailboxId: args.mailboxId, origin: "mcp" }, name, args)); }
 				catch (error) { return output({ error: error instanceof Error ? error.message : "Tool failed" }, true); }
 			});
 		}
-		server.registerTool("update_draft", { description: "Update a caller-owned AI draft by revision", inputSchema: z.object({ mailboxId: z.string(), draftId: z.string(), expectedRevision: z.number().int().positive(), to: z.string().email().optional(), subject: z.string().min(1).max(500).optional(), body: z.string().min(1).max(40_000).optional() }) }, async ({ mailboxId, draftId, expectedRevision, to, subject, body }) => {
+		server.registerTool("update_draft", { description: emailToolDescriptions.edit_draft, inputSchema: z.object({ mailboxId: z.string(), ...emailToolSchemas.edit_draft.shape }) }, async (args) => {
+			const { mailboxId } = args;
 			if (!principal.scopes.includes("mcp:draft") || !principal.mailboxIds.includes(mailboxId)) return output({ error: "Permission denied" }, true);
-			const db = getDb(env);
-			const access = await getMailboxAccessLevel(db, principal.user, mailboxId);
-			if (!access?.canSendOnBehalf) return output({ error: "Permission denied" }, true);
-			const [draft] = await db.select().from(messages).where(and(eq(messages.id, draftId), eq(messages.mailboxId, mailboxId), eq(messages.userId, principal.user.id), eq(messages.status, "draft"))).limit(1);
-			const [metadata] = await db.select().from(agentDraftMetadata).where(eq(agentDraftMetadata.draftId, draftId)).limit(1);
-			if (!draft || !metadata || metadata.revision !== expectedRevision) return output({ error: "Draft changed or not found" }, true);
-			const claimed = await db.update(agentDraftMetadata).set({ revision: expectedRevision + 1 }).where(and(eq(agentDraftMetadata.draftId, draftId), eq(agentDraftMetadata.revision, expectedRevision))).returning({ draftId: agentDraftMetadata.draftId });
-			if (!claimed.length) return output({ error: "Draft changed" }, true);
-			await db.update(messages).set({ toAddr: to ?? draft.toAddr, subject: subject ?? draft.subject, textBody: body ?? draft.textBody, htmlBody: body ? null : draft.htmlBody, snippet: body ? buildSnippet(body, null) : draft.snippet }).where(eq(messages.id, draftId));
-			return output({ draftId, revision: expectedRevision + 1 });
+			try { return output(await editAgentDraft({ env, user: principal.user, mailboxId, origin: "mcp" }, args)); }
+			catch (error) { return output({ error: error instanceof Error ? error.message : "Draft update failed" }, true); }
 		});
 		server.registerTool("request_send", { description: "Request human review of a draft; this never sends", inputSchema: z.object({ mailboxId: z.string(), draftId: z.string(), expectedRevision: z.number().int().positive() }) }, async ({ mailboxId, draftId, expectedRevision }) => {
 			if (!principal.scopes.includes("mcp:request-send") || !principal.mailboxIds.includes(mailboxId)) return output({ error: "Permission denied" }, true);

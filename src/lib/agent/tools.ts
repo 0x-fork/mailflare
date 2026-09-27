@@ -14,9 +14,13 @@ import { htmlToReadableText } from "@/lib/email/reply-content-utils";
 import { updateMessageStatusForUser } from "@/lib/user";
 import type { AgentToolContext, EmailToolName } from "./types";
 import { getReplyRecipients } from "./reply";
+import { formatAgentDraftBody } from "./draft-format";
+import { editAgentDraft } from "./edit-draft";
+import { requestAgentSend } from "./approvals/utils";
+import type { AgentDraftEditInput } from "./types";
 
 const id = z.string().min(1).max(160);
-const body = z.string().trim().min(1).max(40_000);
+const body = z.string().trim().min(1).max(40_000).describe("The recipient-facing email body as ordinary prose. Do not use Markdown or HTML formatting.");
 const limit = z.number().int().min(1).max(50).default(20);
 
 export const emailToolSchemas = {
@@ -26,6 +30,16 @@ export const emailToolSchemas = {
 	search_emails: z.object({ query: z.string().trim().min(1).max(300), folder: z.enum(["inbox", "sent", "draft", "archived", "trash", "spam"]).optional(), limit }),
 	draft_email: z.object({ to: z.string().email(), subject: z.string().trim().min(1).max(500), body }),
 	draft_reply: z.object({ emailId: id, body, replyAll: z.boolean().default(false) }),
+	edit_draft: z.object({
+		draftId: id, expectedRevision: z.number().int().positive(),
+		from: z.string().max(320).optional(), to: z.string().max(2_000).optional(),
+		cc: z.string().max(2_000).nullable().optional(), bcc: z.string().max(2_000).nullable().optional(),
+		subject: z.string().max(500).optional(), body: z.string().max(40_000).optional(),
+		scheduledAt: z.string().max(40).nullable().optional(),
+		addAttachments: z.array(z.object({ sourceEmailId: id, attachmentId: id })).max(10).optional(),
+		removeAttachmentIds: z.array(id).max(10).optional(),
+	}),
+	review_draft_send: z.object({ draftId: id, expectedRevision: z.number().int().positive() }),
 	mark_email_read: z.object({ emailId: id, read: z.boolean() }),
 	move_email: z.object({ emailId: id, destination: z.enum(["inbox", "archived", "trash", "spam"]) }),
 	move_emails: z.object({ emailIds: z.array(id).min(1).max(20), destination: z.enum(["inbox", "archived", "trash", "spam"]) }),
@@ -39,6 +53,8 @@ export const emailToolDescriptions: Record<EmailToolName, string> = {
 	search_emails: "Search email subject and body in this mailbox.",
 	draft_email: "Save a new email draft. This never sends.",
 	draft_reply: "Save a reply draft with recipients and threading derived from the source email. This never sends.",
+	edit_draft: "Update a draft created by the assistant in the selected mailbox. First read it with get_email to get its current revision and attachment IDs. Can change sender, recipients, subject, body, requested schedule, and copy or remove attachments from accessible emails. Use an ISO 8601 send time with timezone offset; null clears it. This never sends or schedules delivery by itself.",
+	review_draft_send: "Create a review link for the current assistant draft revision. The user must explicitly confirm before the email is sent or scheduled. This tool never sends or queues an email.",
 	mark_email_read: "Mark an email as read or unread.",
 	move_email: "Move an email to inbox, archive, trash, or spam.",
 	move_emails: "Move up to 20 emails to inbox, archive, trash, or spam after user approval in chat.",
@@ -74,6 +90,8 @@ async function ownMessage(context: AgentToolContext, messageId: string) {
 
 async function createDraft(context: AgentToolContext, input: { to: string; cc?: string; subject: string; body: string; source?: typeof messages.$inferSelect }) {
 	await requireAccess(context, true);
+	const formattedBody = formatAgentDraftBody(input.body);
+	if (!formattedBody.text) throw new Error("Draft body is empty");
 	const db = getDb(context.env);
 	const [mailbox] = await db.select({ localPart: mailboxes.localPart, hostname: domains.hostname }).from(mailboxes).innerJoin(domains, eq(mailboxes.domainId, domains.id)).where(eq(mailboxes.id, context.mailboxId)).limit(1);
 	if (!mailbox) throw new Error("Mailbox not found");
@@ -84,7 +102,7 @@ async function createDraft(context: AgentToolContext, input: { to: string; cc?: 
 	await db.insert(messages).values({
 		id: draftId, userId: context.user.id, mailboxId: context.mailboxId,
 		direction: "outbound", fromAddr: sender.fromAddr, toAddr: input.to, ccAddr: input.cc || null,
-		subject: input.subject, textBody: input.body, snippet: buildSnippet(input.body, null),
+		subject: input.subject, textBody: formattedBody.text, htmlBody: formattedBody.html, snippet: buildSnippet(formattedBody.text, null),
 		status: "draft", read: true, inReplyTo: source?.providerMessageId ?? null,
 		references: references.length ? formatMessageIdHeader(references) : null,
 		threadId: source?.threadId ?? null,
@@ -123,7 +141,8 @@ export async function runEmailTool(context: AgentToolContext, name: EmailToolNam
 		const row = await ownMessage(context, input.emailId as string);
 		const attachments = await listMessageAttachments(context.env, row.id);
 		const text = (row.textBody || htmlToReadableText(row.htmlBody)).slice(0, 30_000);
-		return { ...publicMessage(row), text, truncated: (row.textBody || row.htmlBody || "").length > 30_000, attachments: attachments.map(({ id, filename, size, type }) => ({ id, filename, size, contentType: type })) };
+		const [metadata] = row.status === "draft" ? await db.select({ revision: agentDraftMetadata.revision, scheduledAt: agentDraftMetadata.scheduledAt }).from(agentDraftMetadata).where(eq(agentDraftMetadata.draftId, row.id)).limit(1) : [];
+		return { ...publicMessage(row), ...(row.status === "draft" ? { bcc: row.bccAddr, revision: metadata?.revision ?? null, scheduledAt: metadata?.scheduledAt?.toISOString() ?? null } : {}), text, truncated: (row.textBody || row.htmlBody || "").length > 30_000, attachments: attachments.map(({ id, filename, size, type }) => ({ id, filename, size, contentType: type })) };
 	}
 	if (name === "get_thread") {
 		const anchor = await ownMessage(context, input.emailId as string);
@@ -139,6 +158,14 @@ export async function runEmailTool(context: AgentToolContext, name: EmailToolNam
 		const recipients = await getReplyRecipients(context, source, input.replyAll as boolean);
 		const subject = /^Re:/i.test(source.subject ?? "") ? source.subject! : `Re: ${source.subject ?? ""}`;
 		return createDraft(context, { ...recipients, subject, body: input.body as string, source });
+	}
+	if (name === "edit_draft") return editAgentDraft(context, input as unknown as AgentDraftEditInput);
+	if (name === "review_draft_send") {
+		if (context.origin !== "chat") throw new Error("Open the draft in Mailflare to review delivery");
+		const draft = await ownMessage(context, input.draftId as string);
+		if (draft.status !== "draft") throw new Error("Draft not found in the selected mailbox");
+		const result = await requestAgentSend(context.env, context.user, input.draftId as string, input.expectedRevision as number);
+		return { draftId: input.draftId, revision: input.expectedRevision, status: "pending_approval", scheduledAt: result.snapshot.scheduledAt, reviewUrl: result.reviewUrl };
 	}
 	if (name === "mark_email_read") {
 		const row = await ownMessage(context, input.emailId as string);

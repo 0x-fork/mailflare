@@ -53,6 +53,8 @@ export async function notifyUsersOfNewMessage(
 	userIds: string[],
 	payload: NewMessageNotification | AgentDraftNotification,
 ): Promise<void> {
+	// Next dev uses a bindings-only proxy; realtime delivery runs in worker.ts.
+	if (!env.REALTIME) return;
 	await Promise.allSettled(
 		userIds.map((userId) => {
 			const hub = env.REALTIME.getByName(userId);

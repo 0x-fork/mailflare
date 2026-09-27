@@ -1,5 +1,6 @@
 import type { NextConfig } from "next";
 import { getSecurityHeaders } from "./src/lib/security/headers";
+import { createDevWranglerConfig } from "./scripts/dev-wrangler-config";
 
 const nextConfig: NextConfig = {
 	turbopack: {
@@ -30,4 +31,4 @@ export default nextConfig;
 // runtime provides its own env, so it skips this.
 // See https://opennext.js.org/cloudflare/bindings#local-access-to-bindings.
 import { initOpenNextCloudflareForDev } from "@opennextjs/cloudflare";
-if (process.env.MAILFLARE_RUNTIME !== "node") initOpenNextCloudflareForDev();
+if (process.env.MAILFLARE_RUNTIME !== "node") initOpenNextCloudflareForDev({ configPath: createDevWranglerConfig() });
