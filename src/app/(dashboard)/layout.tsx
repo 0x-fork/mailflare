@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { HelpCircle } from "lucide-react";
+import { HelpCircle, Sparkles } from "lucide-react";
 import { AuthGuard } from "@/components/auth/auth-guard";
 import { ComposeProvider } from "@/components/compose/compose-context";
 import { FloatingComposer } from "@/components/compose/floating-composer";
@@ -9,17 +9,24 @@ import { MailSearchInput } from "@/components/mail-search/mail-search-input";
 import { MailSearchProvider } from "@/components/mail-search/mail-search-context";
 import { MailboxProvider } from "@/components/mailbox-provider";
 import { MailboxSelector } from "@/components/mailbox-selector";
+import { AgentPanel } from "@/components/agent/agent-panel";
+import { AssistantOpenContext } from "@/components/agent/assistant-open-state";
+import { Button } from "@/components/ui/button";
 import { LicenseIndicator } from "@/components/license-indicator";
 import { DashboardNav } from "@/components/dashboard-nav";
 import { SidebarProvider } from "@/components/sidebar-state";
 import { SidebarResizeBoundary } from "@/components/sidebar-resize-boundary";
 import { ShortcutsProvider } from "@/components/shortcuts";
+import clsx from "clsx";
+import { useDashboardState } from "./dashboard-state";
 
 export default function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const { assistantOpen, setAssistantOpen, assistantFullSize, setAssistantFullSize } = useDashboardState();
+
   return (
     <AuthGuard>
       <SidebarProvider>
@@ -45,11 +52,19 @@ export default function DashboardLayout({
                         <HelpCircle className="h-5 w-5" />
                       </Link>
                       <LicenseIndicator />
+                      <Button type="button" variant="ghost" size="sm" className={assistantOpen ? "bg-blue-50 text-blue-700" : "text-neutral-600"} onClick={() => { setAssistantOpen((current) => !current); setAssistantFullSize(false); }} aria-label={assistantOpen ? "Close email assistant" : "Open email assistant"} aria-expanded={assistantOpen} aria-controls="email-assistant-panel"><Sparkles className="h-5 w-5" /></Button>
                       <MailboxSelector />
                     </header>
-                    <main className="min-h-0 flex-1 overflow-y-auto overscroll-contain rounded-tl-3xl bg-white scrollbar-gutter-stable">
-                      {children}
-                    </main>
+                    <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden">
+                      <AssistantOpenContext.Provider value={assistantOpen}>
+                        <main className={clsx("rounded-t-3xl min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain bg-white scrollbar-gutter-stable")} aria-hidden={assistantOpen && assistantFullSize} inert={assistantOpen && assistantFullSize}>
+                          {children}
+                        </main>
+                      </AssistantOpenContext.Provider>
+                      <aside className={clsx(assistantFullSize ? "pl-0" : "pl-4", `min-h-0 min-w-0 shrink-0 overflow-hidden transition-[width] duration-300 ease-in-out motion-reduce:transition-none pr-2 pb-2`, assistantOpen ? "" : "opacity-0")} style={{ width: assistantOpen ? assistantFullSize ? "100%" : "min(390px, 100%)" : "0px" }} aria-hidden={!assistantOpen} inert={!assistantOpen}>
+                        <AgentPanel open={assistantOpen} fullSize={assistantFullSize} onToggleFullSize={() => setAssistantFullSize((current) => !current)} onClose={() => { setAssistantOpen(false); setAssistantFullSize(false); }} />
+                      </aside>
+                    </div>
                   </div>
                   <FloatingComposer />
                 </div>

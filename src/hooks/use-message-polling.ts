@@ -70,6 +70,14 @@ export function useMessagePolling(): MessageRealtimeState {
 			};
 			socket.onmessage = (message) => {
 				if (message.data === "pong" || typeof message.data !== "string") return;
+				try {
+					const payload = JSON.parse(message.data) as { type?: string; draftId?: string; mailboxId?: string };
+					if (payload.type === "agent_draft" && payload.draftId && payload.mailboxId) {
+						window.dispatchEvent(new CustomEvent("mailflare:agent-draft", { detail: payload }));
+						dispatchMessagesChanged();
+						return;
+					}
+				} catch { /* Ignore malformed notification. */ }
 				const event = parseNewMessageEvent(message.data);
 				if (!event) return;
 				dispatchMessagesChanged();

@@ -20,6 +20,7 @@ import {
 	getMailboxNotificationUserIds,
 	notifyUsersOfNewMessage,
 } from "@/lib/realtime/utils";
+import { scheduleAutoDraft } from "@/lib/agent/jobs/utils";
 
 export type InboundQueueMessage = {
 	from: string;
@@ -59,7 +60,13 @@ export async function processInboundMessage(
 		eq(messages.mailboxId, decision.mailbox.mailboxId),
 		eq(messages.rawR2Key, payload.rawR2Key),
 	)).limit(1);
-	if (stored) return;
+	if (stored) {
+		try {
+			const [existing] = await db.select().from(messages).where(eq(messages.id, stored.id)).limit(1);
+			if (existing && Date.now() - existing.createdAt.getTime() < 30 * 60_000) await scheduleAutoDraft(env, { mailboxId: decision.mailbox.mailboxId, sourceMessageId: existing.id, ownerUserId: decision.mailbox.userId, sender: existing.fromAddr, headers: payload.headers, status: existing.status, folderId: existing.folderId, spamVerdict: existing.spamVerdict, spamAnalysisError: existing.spamAnalysisError });
+		} catch (error) { console.error("Auto-draft recovery failed", error); }
+		return;
+	}
 
 	const raw = await env.BUCKET.get(payload.rawR2Key);
 	if (!raw) {
@@ -210,6 +217,9 @@ export async function processInboundMessage(
 		spamScore: spamAnalysis?.score,
 		spamVerdict: spamAnalysis?.verdict,
 	});
+	try {
+		await scheduleAutoDraft(env, { mailboxId: decision.mailbox.mailboxId, sourceMessageId: messageId, ownerUserId: decision.mailbox.userId, sender: fromAddr, headers: payload.headers, status, folderId, spamVerdict: spamAnalysis?.verdict, spamAnalysisError });
+	} catch (error) { console.error("Auto-draft scheduling failed", error); }
 }
 
 export async function storeRawToR2(

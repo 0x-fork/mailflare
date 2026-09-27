@@ -7,7 +7,13 @@ export interface NewMessageNotification {
 	type: "new_message";
 }
 
+export interface AgentDraftNotification {
+	mailboxId: string;
+	draftId: string;
+	type: "agent_draft";
+}
+
 export interface RealtimeNotificationRequest {
 	userIds: string[];
-	payload: NewMessageNotification;
+	payload: NewMessageNotification | AgentDraftNotification;
 }

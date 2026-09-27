@@ -6,6 +6,7 @@ import { WebSocketServer } from "ws";
 import { getUserFromSession } from "@/lib/auth/session";
 import { getSessionTokenFromRequest } from "@/lib/realtime/utils";
 import { processInboundMessage } from "@/lib/email/inbound";
+import { processAgentDraftJob } from "@/lib/agent/jobs/utils";
 import { processOutboundQueue, type OutboundQueueMessage } from "@/lib/email/send";
 import { processWebhookRetry, type WebhookRetryMessage } from "@/lib/email/webhooks";
 import { isInboundQueueMessage, isWebhookRetryMessage } from "../worker-utils";
@@ -36,6 +37,9 @@ async function main() {
 	runtime.outboundQueue.setConsumer(async (body) => {
 		if (isWebhookRetryMessage(body)) await processWebhookRetry(env, body as WebhookRetryMessage);
 		else await processOutboundQueue(env, body as OutboundQueueMessage);
+	});
+	runtime.agentQueue.setConsumer(async (body) => {
+		if (typeof body === "object" && body !== null && (body as { kind?: unknown }).kind === "agent.draft" && typeof (body as { jobId?: unknown }).jobId === "string") await processAgentDraftJob(env, (body as { jobId: string }).jobId);
 	});
 
 	const app = next({ dev, dir: process.cwd(), hostname: host, port });
@@ -87,6 +91,7 @@ async function main() {
 		stopScheduler();
 		runtime.inboundQueue.stop();
 		runtime.outboundQueue.stop();
+		runtime.agentQueue.stop();
 		server.close(() => process.exit(0));
 		setTimeout(() => process.exit(0), 5000).unref();
 	};

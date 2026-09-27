@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { getEnv } from "@/lib/cloudflare";
 import { getDb } from "@/db";
-import { messages } from "@/db/schema";
+import { agentDraftMetadata, messages } from "@/db/schema";
 import { requireUser } from "@/lib/auth/cookies";
 import { buildSnippet } from "@/lib/email/parse";
 import type { DraftPayload, DraftRouteParams } from "./types";
@@ -25,7 +25,8 @@ export async function GET(request: Request, { params }: DraftRouteParams) {
 	}
 
 	const attachments = await listMessageAttachments(env, id);
-	return NextResponse.json({ draft: { ...draft, attachments } });
+	const [agent] = await db.select().from(agentDraftMetadata).where(eq(agentDraftMetadata.draftId, id)).limit(1);
+	return NextResponse.json({ draft: { ...draft, attachments, agent: agent ? { revision: agent.revision, origin: agent.origin } : null } });
 }
 
 export async function PATCH(request: Request, { params }: DraftRouteParams) {
@@ -44,6 +45,10 @@ export async function PATCH(request: Request, { params }: DraftRouteParams) {
 
 	if (!userOwnsDraft(draft, user.id)) {
 		return NextResponse.json({ error: "Draft not found" }, { status: 404 });
+	}
+	const [agent] = await db.select({ mailboxId: agentDraftMetadata.mailboxId }).from(agentDraftMetadata).where(eq(agentDraftMetadata.draftId, id)).limit(1);
+	if (agent && input.mailboxId !== agent.mailboxId) {
+		return NextResponse.json({ error: "Agent draft mailbox cannot be changed" }, { status: 409 });
 	}
 	const sender = await getDraftSender(env, user.id, input);
 	if ("error" in sender) {
@@ -66,6 +71,7 @@ export async function PATCH(request: Request, { params }: DraftRouteParams) {
 			htmlBody: html || null,
 		})
 		.where(eq(messages.id, id));
+	await db.update(agentDraftMetadata).set({ revision: sql`${agentDraftMetadata.revision} + 1`, humanEditedAt: new Date() }).where(eq(agentDraftMetadata.draftId, id));
 
 	return NextResponse.json({ draft: { id } });
 }

@@ -16,6 +16,8 @@ import {
 	MAILFLARE_FORWARDED_HEADER,
 } from "./src/lib/email/account-forwarding";
 import { runScheduledDatabaseBackup } from "./src/lib/backups/runner";
+import { processAgentDraftJob } from "./src/lib/agent/jobs/utils";
+import { runAgentMaintenance } from "./src/lib/agent/maintenance";
 export { RealtimeHub } from "./src/lib/realtime/hub";
 
 export default {
@@ -81,10 +83,14 @@ export default {
 			try {
 				if (isInboundQueueMessage(msg.body)) {
 					await processInboundMessage(env, msg.body);
+				} else if (typeof msg.body === "object" && msg.body !== null && (msg.body as { kind?: unknown }).kind === "agent.draft" && typeof (msg.body as { jobId?: unknown }).jobId === "string") {
+					await processAgentDraftJob(env, (msg.body as { jobId: string }).jobId);
 				} else if (isWebhookRetryMessage(msg.body)) {
 					await processWebhookRetry(env, msg.body as WebhookRetryMessage);
-				} else {
+				} else if (typeof msg.body === "object" && msg.body !== null && (msg.body as { kind?: unknown }).kind === "email.scheduled") {
 					await processOutboundQueue(env, msg.body as OutboundQueueMessage);
+				} else {
+					throw new Error("Unknown queue message type");
 				}
 				msg.ack();
 			} catch (err) {
@@ -95,6 +101,7 @@ export default {
 	},
 
 	async scheduled(controller: ScheduledController, env: CloudflareEnv, ctx: ExecutionContext) {
-		ctx.waitUntil(runScheduledDatabaseBackup(env, new Date(controller.scheduledTime)));
+		if (controller.cron === "0 2 * * *") ctx.waitUntil(runScheduledDatabaseBackup(env, new Date(controller.scheduledTime)));
+		ctx.waitUntil(runAgentMaintenance(env));
 	},
 } satisfies ExportedHandler<CloudflareEnv>;

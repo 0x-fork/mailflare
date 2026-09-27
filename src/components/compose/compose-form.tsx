@@ -13,6 +13,8 @@ import { useSelectedMailbox } from "@/components/mailbox-provider";
 import { authFetch } from "@/lib/auth/client";
 import { formatEmailAddress, getEmailAddress } from "@/lib/email/address";
 import { cn } from "@/lib/utils";
+import { SendReview } from "@/components/agent/send-review";
+import type { ReviewSnapshot } from "@/components/agent/send-review-types";
 import { buildSendFormData, fetchDraft, formatAttachmentSize } from "./utils";
 import { RecipientInput } from "./recipient-input";
 import { RichTextEditor } from "./rich-text-editor";
@@ -42,6 +44,8 @@ export function ComposeForm({
 	const router = useRouter();
 	const { selectedMailbox, setSelectedMailbox, mailboxes } = useSelectedMailbox();
 	const [draftId, setDraftId] = useState<string | null>(null);
+	const [agentRevision, setAgentRevision] = useState<number | null>(null);
+	const [agentReview, setAgentReview] = useState<{ approvalId: string; snapshot: ReviewSnapshot } | null>(null);
 	const [to, setTo] = useState<string[]>([]);
 	const [cc, setCc] = useState<string[]>([]);
 	const [bcc, setBcc] = useState<string[]>([]);
@@ -118,6 +122,7 @@ export function ComposeForm({
 				if (cancelled) return;
 
 				setDraftId(draft.id);
+				setAgentRevision(draft.agent?.revision ?? null);
 				setTo(headerToRecipients(draft.toAddr));
 				const draftCc = headerToRecipients(draft.ccAddr);
 				const draftBcc = headerToRecipients(draft.bccAddr);
@@ -236,6 +241,27 @@ export function ComposeForm({
 		}
 		setLoading(true);
 		const fullHtml = joinQuotedHtml(html, quotedHtml);
+		if (draftId && agentRevision !== null) {
+			if (attachments.length > 0 || scheduledAt) {
+				setLoading(false);
+				setToast({ type: "error", message: "AI drafts with new attachments or a schedule need to be sent as a new manual message" });
+				return;
+			}
+			try {
+				if (saveTimer.current) clearTimeout(saveTimer.current);
+				const updated = await authFetch(`/api/drafts/${draftId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ mailboxId: selectedMailbox?.id, from: fromAddr, to: recipientsToHeader(to), cc: recipientsToHeader(cc), bcc: recipientsToHeader(bcc), subject, html: fullHtml, text: htmlToPlainText(fullHtml), inReplyTo: threading?.inReplyTo ?? null, references: threading?.references ?? null, threadId: threading?.threadId ?? null }) });
+				if (!updated.ok) throw new Error("Could not save the draft for review");
+				const current = await fetchDraft(draftId);
+				if (!current.agent) throw new Error("AI draft metadata is missing");
+				setAgentRevision(current.agent.revision);
+				const response = await authFetch("/api/agent/approvals", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ draftId, expectedRevision: current.agent.revision }) });
+				const result = await response.json() as { approvalId?: string; snapshot?: ReviewSnapshot; error?: string };
+				if (!response.ok || !result.approvalId || !result.snapshot) throw new Error(result.error || "Could not create review");
+				setAgentReview({ approvalId: result.approvalId, snapshot: result.snapshot });
+			} catch (cause) { setToast({ type: "error", message: cause instanceof Error ? cause.message : "Could not review draft" }); }
+			finally { setLoading(false); }
+			return;
+		}
 		const res = await authFetch("/api/send", {
 			method: "POST",
 			body: buildSendFormData({
@@ -249,7 +275,7 @@ export function ComposeForm({
 				html: fullHtml,
 				mailboxId: selectedMailbox?.id,
 				threading: threading ?? undefined,
-				draftId: storedAttachments.length > 0 ? draftId : null,
+				draftId,
 				scheduledAt,
 			}),
 		});
@@ -451,6 +477,7 @@ export function ComposeForm({
 
 	return (
 		<>
+			{agentReview && <SendReview approvalId={agentReview.approvalId} snapshot={agentReview.snapshot} onClose={() => setAgentReview(null)} onSent={() => { setAgentReview(null); if (onClose) onClose(); else router.push("/sent"); }} />}
 			{mode === "popup" && modalMode && <div className="fixed inset-0 z-40 bg-neutral-950/65" aria-hidden="true" />}
 			{toast && (
 				<div

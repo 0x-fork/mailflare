@@ -1,5 +1,5 @@
 import { DurableObject } from "cloudflare:workers";
-import type { NewMessageNotification } from "./types";
+import type { NewMessageNotification, AgentDraftNotification } from "./types";
 
 export class RealtimeHub extends DurableObject<CloudflareEnv> {
 	async fetch(request: Request): Promise<Response> {
@@ -19,7 +19,7 @@ export class RealtimeHub extends DurableObject<CloudflareEnv> {
 		}
 
 		if (url.pathname === "/notify" && request.method === "POST") {
-			const payload = (await request.json()) as NewMessageNotification;
+			const payload = (await request.json()) as NewMessageNotification | AgentDraftNotification;
 			const message = JSON.stringify(payload);
 
 			for (const socket of this.ctx.getWebSockets()) {
