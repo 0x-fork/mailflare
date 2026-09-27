@@ -2,12 +2,13 @@
 
 import { createContext, useContext, useEffect, useState } from "react";
 import { readColumnWidth } from "./column-width-preferences";
+import { readInitialSidebarMinimal, saveInitialSidebarMinimal } from "./sidebar-state-utils";
 import type { SidebarProviderProps, SidebarState } from "./sidebar-state-types";
 
 const SidebarContext = createContext<SidebarState>({ minimal: false, width: 260, userId: null, toggle: () => undefined, setWidth: () => undefined, setForcedMinimal: () => undefined });
 
 export function SidebarProvider({ children, expandedWidth = 260 }: SidebarProviderProps) {
-	const [minimal, setMinimal] = useState(false);
+	const [minimal, setMinimal] = useState(readInitialSidebarMinimal);
 	const [forcedMinimal, setForcedMinimal] = useState(false);
 	const [width, setWidth] = useState(expandedWidth);
 	const [userId, setUserId] = useState<string | null>(null);
@@ -29,7 +30,9 @@ export function SidebarProvider({ children, expandedWidth = 260 }: SidebarProvid
 					const key = `mailflare-sidebar-minimal:${userId}`;
 				setStorageKey(key);
 				try {
-						setMinimal(localStorage.getItem(key) === "true");
+						const savedMinimal = localStorage.getItem(key) === "true";
+						setMinimal(savedMinimal);
+						saveInitialSidebarMinimal(savedMinimal);
 						setWidth(readColumnWidth(userId, "sidebar", expandedWidth, 200, 480));
 				} catch {
 					// Storage can be unavailable in private windows; keep the default.
@@ -42,11 +45,13 @@ export function SidebarProvider({ children, expandedWidth = 260 }: SidebarProvid
 		if (forcedMinimal) {
 			setForcedMinimal(false);
 			setMinimal(false);
+			saveInitialSidebarMinimal(false);
 			if (storageKey) localStorage.setItem(storageKey, "false");
 			return;
 		}
 		setMinimal((current) => {
 			const next = !current;
+			saveInitialSidebarMinimal(next);
 			if (storageKey) localStorage.setItem(storageKey, String(next));
 			return next;
 		});
