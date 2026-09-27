@@ -30,7 +30,10 @@ await build({
 	target: "node24",
 	tsconfig: join(root, "tsconfig.json"),
 	packages: "external",
-	alias: { "next/headers": "next/headers.js" },
+	alias: {
+		"next/headers": "next/headers.js",
+		"cloudflare:workers": "./server/runtime/cloudflare-workers.ts",
+	},
 	logLevel: "silent",
 });
 const { SqliteDatabase, applyMigrations, createAgentChatStream, runEmailTool, requestAgentSend, createSession, postAgentChat } = await import(pathToFileURL(join(bundleDirectory, "entry.mjs")).href);

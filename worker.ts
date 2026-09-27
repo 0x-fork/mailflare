@@ -1,5 +1,4 @@
-// @ts-ignore — generated at build time
-import { default as nextHandler } from "./.open-next/worker.js";
+import vinextHandler from "vinext/server/fetch-handler";
 import {
 	processInboundMessage,
 	storeRawToR2,
@@ -39,7 +38,7 @@ export default {
 			return hub.fetch(hubRequest);
 		}
 
-		return nextHandler.fetch(request, env, ctx);
+		return vinextHandler.fetch(request, env, ctx);
 	},
 
 	async email(message: ForwardableEmailMessage, env: CloudflareEnv, ctx: ExecutionContext) {
