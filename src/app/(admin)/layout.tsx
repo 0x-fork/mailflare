@@ -24,7 +24,7 @@ export default function DashboardLayout({
       <MailboxProvider>
         <ComposeProvider>
           <ShortcutsProvider>
-          <div className="grid h-dvh grid-cols-[var(--sidebar-width)_minmax(0,1fr)] overflow-hidden bg-[#f6f8fc] transition-[grid-template-columns] duration-200">
+          <div className="grid h-dvh grid-cols-[var(--sidebar-width)_minmax(0,1fr)] overflow-hidden bg-[#f6f8fc] transition-[grid-template-columns]" style={{ transitionDuration: "var(--sidebar-transition-duration)" }}>
             <aside className="relative min-h-0 min-w-0">
               <div className="h-full overflow-y-auto overscroll-contain px-3 py-4 scrollbar-gutter-stable">
                 <AdminNav />

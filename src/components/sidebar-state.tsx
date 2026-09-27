@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useLayoutEffect, useState } from "react";
 import { readColumnWidth, readInitialColumnWidth, saveColumnWidth } from "./column-width-preferences";
-import { readInitialSidebarMinimal, saveInitialSidebarMinimal } from "./sidebar-state-utils";
+import { readInitialSidebarMinimal, saveInitialSidebarMinimal, syncInitialSidebarWidth } from "./sidebar-state-utils";
 import type { SidebarProviderProps, SidebarState } from "./sidebar-state-types";
 
 const SidebarContext = createContext<SidebarState>({ minimal: false, width: 260, userId: null, toggle: () => undefined, setWidth: () => undefined, setForcedMinimal: () => undefined });
@@ -21,6 +21,10 @@ export function SidebarProvider({ children, expandedWidth = 260 }: SidebarProvid
 		const frame = requestAnimationFrame(() => setWidthReady(true));
 		return () => cancelAnimationFrame(frame);
 	}, [expandedWidth]);
+
+	useLayoutEffect(() => {
+		syncInitialSidebarWidth(width, minimal);
+	}, [width, minimal]);
 
 	useEffect(() => {
 		// The sidebar preference is cosmetic, so every failure here degrades to the default.
@@ -71,7 +75,7 @@ export function SidebarProvider({ children, expandedWidth = 260 }: SidebarProvid
 
 	return (
 		<SidebarContext.Provider value={{ minimal: minimal || forcedMinimal, width, userId, toggle, setWidth, setForcedMinimal }}>
-			<div className="h-full" style={{ "--sidebar-width": `${minimal || forcedMinimal ? 72 : width}px`, "--sidebar-transition-duration": widthReady ? "200ms" : "0ms" } as React.CSSProperties}>
+			<div className="h-full" style={{ "--sidebar-width": widthReady ? `${minimal || forcedMinimal ? 72 : width}px` : `var(--persisted-sidebar-width, ${expandedWidth}px)`, "--sidebar-transition-duration": widthReady ? "200ms" : "0ms" } as React.CSSProperties}>
 				{children}
 			</div>
 		</SidebarContext.Provider>
