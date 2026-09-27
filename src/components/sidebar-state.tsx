@@ -1,18 +1,26 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState } from "react";
-import { readColumnWidth } from "./column-width-preferences";
+import { createContext, useContext, useEffect, useLayoutEffect, useState } from "react";
+import { readColumnWidth, readInitialColumnWidth, saveColumnWidth } from "./column-width-preferences";
 import { readInitialSidebarMinimal, saveInitialSidebarMinimal } from "./sidebar-state-utils";
 import type { SidebarProviderProps, SidebarState } from "./sidebar-state-types";
 
 const SidebarContext = createContext<SidebarState>({ minimal: false, width: 260, userId: null, toggle: () => undefined, setWidth: () => undefined, setForcedMinimal: () => undefined });
 
 export function SidebarProvider({ children, expandedWidth = 260 }: SidebarProviderProps) {
-	const [minimal, setMinimal] = useState(readInitialSidebarMinimal);
+	const [minimal, setMinimal] = useState(false);
 	const [forcedMinimal, setForcedMinimal] = useState(false);
 	const [width, setWidth] = useState(expandedWidth);
+	const [widthReady, setWidthReady] = useState(false);
 	const [userId, setUserId] = useState<string | null>(null);
 	const [storageKey, setStorageKey] = useState<string | null>(null);
+
+	useLayoutEffect(() => {
+		setMinimal(readInitialSidebarMinimal());
+		setWidth(readInitialColumnWidth("sidebar", expandedWidth, 200, 480));
+		const frame = requestAnimationFrame(() => setWidthReady(true));
+		return () => cancelAnimationFrame(frame);
+	}, [expandedWidth]);
 
 	useEffect(() => {
 		// The sidebar preference is cosmetic, so every failure here degrades to the default.
@@ -30,10 +38,14 @@ export function SidebarProvider({ children, expandedWidth = 260 }: SidebarProvid
 					const key = `mailflare-sidebar-minimal:${userId}`;
 				setStorageKey(key);
 				try {
-						const savedMinimal = localStorage.getItem(key) === "true";
+						const storedMinimal = localStorage.getItem(key);
+						const savedMinimal = storedMinimal === null ? readInitialSidebarMinimal() : storedMinimal === "true";
 						setMinimal(savedMinimal);
 						saveInitialSidebarMinimal(savedMinimal);
-						setWidth(readColumnWidth(userId, "sidebar", expandedWidth, 200, 480));
+						localStorage.setItem(key, String(savedMinimal));
+						const savedWidth = readColumnWidth(userId, "sidebar", readInitialColumnWidth("sidebar", expandedWidth, 200, 480), 200, 480);
+						setWidth(savedWidth);
+						saveColumnWidth(userId, "sidebar", savedWidth);
 				} catch {
 					// Storage can be unavailable in private windows; keep the default.
 				}
@@ -59,7 +71,7 @@ export function SidebarProvider({ children, expandedWidth = 260 }: SidebarProvid
 
 	return (
 		<SidebarContext.Provider value={{ minimal: minimal || forcedMinimal, width, userId, toggle, setWidth, setForcedMinimal }}>
-			<div className="h-full" style={{ "--sidebar-width": `${minimal || forcedMinimal ? 72 : width}px` } as React.CSSProperties}>
+			<div className="h-full" style={{ "--sidebar-width": `${minimal || forcedMinimal ? 72 : width}px`, "--sidebar-transition-duration": widthReady ? "200ms" : "0ms" } as React.CSSProperties}>
 				{children}
 			</div>
 		</SidebarContext.Provider>

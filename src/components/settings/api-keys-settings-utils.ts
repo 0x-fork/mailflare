@@ -38,7 +38,7 @@ export async function createManagedApiKey(input: { name: string; mcpAllowed: boo
 	const response = await authFetch(input.mcpAllowed ? "/api/agent/mcp-keys" : "/api/api-keys", {
 		method: "POST",
 		headers: { "Content-Type": "application/json" },
-		body: JSON.stringify(input.mcpAllowed ? { name: input.name, scopes: input.scopes, mailboxIds: input.mailboxIds } : { name: input.name, scopes: input.scopes }),
+		body: JSON.stringify({ name: input.name, scopes: input.scopes, mailboxIds: input.mailboxIds }),
 	});
 	const data = await responseData(response);
 	if (!response.ok || !data.key) throw new Error(typeof data.error === "string" ? data.error : "Could not create API key");

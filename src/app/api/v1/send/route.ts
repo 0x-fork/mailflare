@@ -26,6 +26,9 @@ export async function POST(request: Request) {
 	if (!parsed.success) {
 		return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
 	}
+	if (auth.mailboxIds && !auth.mailboxIds.includes(parsed.data.mailboxId)) {
+		return NextResponse.json({ error: "Mailbox not found" }, { status: 404 });
+	}
 
 	try {
 		const { attachments, ...fields } = parsed.data;

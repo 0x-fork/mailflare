@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { authFetch } from "@/lib/auth/client";
+import { readInitialAssistantPanelState, saveAssistantPanelState } from "./dashboard-state-utils";
 
 const emailPath = /^\/(?:inbox|sent|archived|spam|trash|starred|snoozed|drafts)\/[^/]+$|^\/folders\/[^/]+\/[^/]+$/;
 
@@ -11,7 +12,15 @@ export function useDashboardState() {
 	const router = useRouter();
 	const [assistantOpen, setAssistantOpen] = useState(false);
 	const [assistantFullSize, setAssistantFullSize] = useState(false);
+	const [panelRestored, setPanelRestored] = useState(false);
 	const [storagePrefix, setStoragePrefix] = useState<string | null>(null);
+
+	useLayoutEffect(() => {
+		const saved = readInitialAssistantPanelState();
+		setAssistantOpen(saved.open);
+		setAssistantFullSize(saved.fullSize);
+		setPanelRestored(true);
+	}, []);
 
 	useEffect(() => {
 		let cancelled = false;
@@ -21,8 +30,11 @@ export function useDashboardState() {
 			if (cancelled || !data.user?.id) return;
 			const prefix = `mailflare-dashboard:${data.user.id}`;
 			try {
-				setAssistantOpen(localStorage.getItem(`${prefix}:assistant-open`) === "true");
-				setAssistantFullSize(localStorage.getItem(`${prefix}:assistant-full-size`) === "true");
+				const savedOpen = localStorage.getItem(`${prefix}:assistant-open`);
+				const savedFullSize = localStorage.getItem(`${prefix}:assistant-full-size`);
+				const initial = readInitialAssistantPanelState();
+				setAssistantOpen(savedOpen === null ? initial.open : savedOpen === "true");
+				setAssistantFullSize(savedFullSize === null ? initial.fullSize : savedFullSize === "true");
 				if (window.location.pathname === "/inbox") {
 					const savedEmail = localStorage.getItem(`${prefix}:current-email`);
 					if (savedEmail && emailPath.test(savedEmail)) router.replace(savedEmail);
@@ -34,12 +46,9 @@ export function useDashboardState() {
 	}, []);
 
 	useEffect(() => {
-		if (!storagePrefix) return;
-		try {
-			localStorage.setItem(`${storagePrefix}:assistant-open`, String(assistantOpen));
-			localStorage.setItem(`${storagePrefix}:assistant-full-size`, String(assistantFullSize));
-		} catch { /* Storage is optional. */ }
-	}, [storagePrefix, assistantOpen, assistantFullSize]);
+		if (!panelRestored) return;
+		saveAssistantPanelState(assistantOpen, assistantFullSize, storagePrefix);
+	}, [panelRestored, storagePrefix, assistantOpen, assistantFullSize]);
 
 	useEffect(() => {
 		if (!storagePrefix || !emailPath.test(pathname)) return;

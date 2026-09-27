@@ -6,6 +6,8 @@ import { getMailboxAccessLevel } from "@/lib/mailboxes/access";
 import { newId } from "@/lib/ids";
 import { agentSystemPrompt, getAgentModel } from "./model";
 import { agentProviderErrorMessage } from "./errors";
+import { getAgentEnabled } from "./provider";
+import { recordAiUsage } from "@/lib/ai/usage";
 import { EMAIL_TOOL_NAMES, emailToolDescriptions, emailToolSchemas, runEmailTool } from "./tools";
 import type { AgentToolContext } from "./types";
 
@@ -31,10 +33,10 @@ export async function createAgentChatStream(context: AgentToolContext, text: str
 	const db = getDb(context.env);
 	const access = await getMailboxAccessLevel(db, context.user, context.mailboxId);
 	if (!access?.canRead) throw new Error("Mailbox not found");
+	if (!await getAgentEnabled(context.env)) throw new Error("Assistant is disabled");
 	const [settings] = await db.select().from(mailboxAgentSettings).where(eq(mailboxAgentSettings.mailboxId, context.mailboxId)).limit(1);
-	if (settings && !settings.enabled) throw new Error("Assistant is disabled for this mailbox");
-	const model = await getAgentModel(context.env);
-	if (!model) throw new Error("AI provider is not configured");
+	const selection = await getAgentModel(context.env, settings?.modelId);
+	if (!selection) throw new Error("AI provider is not configured");
 	let conversation = conversationId ? await getAgentConversation(context, conversationId) : null;
 	if (conversationId && !conversation) throw new Error("Conversation not found");
 	if (!conversation) {
@@ -51,7 +53,7 @@ export async function createAgentChatStream(context: AgentToolContext, text: str
 		description: emailToolDescriptions[name], inputSchema: emailToolSchemas[name],
 		execute: async (input: unknown) => runEmailTool(context, name, input),
 	}]));
-	const result = streamText({ model, system: agentSystemPrompt(settings?.instructions ?? ""), messages: prompt, tools, stopWhen: stepCountIs(5), maxOutputTokens: 1200, abortSignal: signal });
+	const result = streamText({ model: selection.model, system: agentSystemPrompt(settings?.instructions ?? ""), messages: prompt, tools, stopWhen: stepCountIs(5), maxOutputTokens: 1200, abortSignal: signal, onStepFinish: async ({ usage }) => { await recordAiUsage({ env: context.env, details: selection, usage, source: "chat" }); } });
 	const encoder = new TextEncoder();
 	const id = conversation.id;
 	const stream = new ReadableStream<Uint8Array>({

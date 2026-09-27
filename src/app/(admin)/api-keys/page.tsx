@@ -18,6 +18,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { List, ListRow } from "@/components/ui/list";
 import { SectionRowSkeleton } from "@/components/page-skeletons";
+import { McpAgentInstructions } from "@/components/settings/mcp-agent-instructions";
 import { authFetch } from "@/lib/auth/client";
 import type { AdminApiKeyScope } from "@/lib/api/scopes-types";
 import type { ApiKey } from "./types";
@@ -28,6 +29,7 @@ export default function ApiKeysPage() {
 	const [name, setName] = useState("");
 	const [scopes, setScopes] = useState<AdminApiKeyScope[]>(["domains"]);
 	const [mcpAllowed, setMcpAllowed] = useState(false);
+	const [createdMcpAllowed, setCreatedMcpAllowed] = useState(false);
 	const [newKey, setNewKey] = useState<string | null>(null);
 	const [copied, setCopied] = useState(false);
 	const [createOpen, setCreateOpen] = useState(false);
@@ -51,6 +53,7 @@ export default function ApiKeysPage() {
 			const json = (await res.json()) as { key?: string; error?: string };
 			if (!res.ok || !json.key) throw new Error(typeof json.error === "string" ? json.error : "Could not create API key");
 			setNewKey(json.key ?? null);
+			setCreatedMcpAllowed(mcpAllowed);
 			setCopied(false);
 			setName("");
 		},
@@ -120,7 +123,7 @@ export default function ApiKeysPage() {
 							{create.isPending ? "Creating..." : "Create key"}
 						</Button>
 						</div>}
-						{newKey && <div className="space-y-2 rounded-xl border border-blue-200 bg-blue-50 p-4"><code className="block break-all rounded bg-white p-2 text-xs">{newKey}</code><div className="flex gap-2"><Button type="button" size="sm" variant="outline" onClick={() => void navigator.clipboard.writeText(newKey).then(() => setCopied(true))}><Copy className="h-4 w-4" />{copied ? "Copied" : "Copy key"}</Button><Button type="button" size="sm" variant="ghost" onClick={() => { setCreateOpen(false); setNewKey(null); setCopied(false); }}>Done</Button></div></div>}
+						{newKey && <div className="space-y-3 rounded-xl border border-blue-200 bg-blue-50 p-4"><code className="block break-all rounded bg-white p-2 text-xs">{newKey}</code>{createdMcpAllowed && <McpAgentInstructions mode="admin" apiKey={newKey} />}<div className="flex gap-2"><Button type="button" size="sm" variant="outline" onClick={() => void navigator.clipboard.writeText(newKey).then(() => setCopied(true))}><Copy className="h-4 w-4" />{copied ? "Copied" : "Copy key"}</Button><Button type="button" size="sm" variant="ghost" onClick={() => { setCreateOpen(false); setNewKey(null); setCopied(false); }}>Done</Button></div></div>}
 					</DialogContent>
 				</Dialog>
 			</div>

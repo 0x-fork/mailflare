@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import Link from "next/link";
 import { HelpCircle, Sparkles } from "lucide-react";
 import { AuthGuard } from "@/components/auth/auth-guard";
@@ -19,6 +20,7 @@ import { SidebarResizeBoundary } from "@/components/sidebar-resize-boundary";
 import { ShortcutsProvider } from "@/components/shortcuts";
 import clsx from "clsx";
 import { useDashboardState } from "./dashboard-state";
+import { useAssistantAvailability } from "./use-assistant-availability";
 
 export default function DashboardLayout({
   children,
@@ -26,6 +28,15 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const { assistantOpen, setAssistantOpen, assistantFullSize, setAssistantFullSize } = useDashboardState();
+  const assistantEnabled = useAssistantAvailability();
+  const assistantVisible = assistantEnabled === true && assistantOpen;
+
+  useEffect(() => {
+    if (assistantEnabled === false && (assistantOpen || assistantFullSize)) {
+      setAssistantOpen(false);
+      setAssistantFullSize(false);
+    }
+  }, [assistantEnabled, assistantOpen, assistantFullSize, setAssistantOpen, setAssistantFullSize]);
 
   return (
     <AuthGuard>
@@ -34,7 +45,7 @@ export default function DashboardLayout({
           <ComposeProvider>
             <MailSearchProvider>
               <ShortcutsProvider>
-                <div className="grid h-dvh grid-cols-[var(--sidebar-width)_minmax(0,1fr)] overflow-hidden bg-[#f6f8fc] transition-[grid-template-columns] duration-200">
+                <div className="grid h-dvh grid-cols-[var(--sidebar-width)_minmax(0,1fr)] overflow-hidden bg-[#f6f8fc] transition-[grid-template-columns]" style={{ transitionDuration: "var(--sidebar-transition-duration)" }}>
                   <aside className="relative min-h-0 min-w-0">
                     <div className="h-full overflow-y-auto overscroll-contain px-3 py-4 scrollbar-gutter-stable">
                       <DashboardNav />
@@ -52,17 +63,17 @@ export default function DashboardLayout({
                         <HelpCircle className="h-5 w-5" />
                       </Link>
                       <LicenseIndicator />
-                      <Button type="button" variant="ghost" size="sm" className={assistantOpen ? "bg-blue-50 text-blue-700" : "text-neutral-600"} onClick={() => { setAssistantOpen((current) => !current); setAssistantFullSize(false); }} aria-label={assistantOpen ? "Close email assistant" : "Open email assistant"} aria-expanded={assistantOpen} aria-controls="email-assistant-panel"><Sparkles className="h-5 w-5" /></Button>
+                      {assistantEnabled && <Button type="button" variant="ghost" size="sm" className={assistantOpen ? "bg-blue-50 text-blue-700" : "text-neutral-600"} onClick={() => { setAssistantOpen((current) => !current); setAssistantFullSize(false); }} aria-label={assistantOpen ? "Close email assistant" : "Open email assistant"} aria-expanded={assistantOpen} aria-controls="email-assistant-panel"><Sparkles className="h-5 w-5" /></Button>}
                       <MailboxSelector />
                     </header>
                     <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden">
-                      <AssistantOpenContext.Provider value={assistantOpen}>
-                        <main className={clsx("rounded-t-3xl min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain bg-white scrollbar-gutter-stable")} aria-hidden={assistantOpen && assistantFullSize} inert={assistantOpen && assistantFullSize}>
+                      <AssistantOpenContext.Provider value={assistantVisible}>
+                        <main className={clsx("rounded-t-3xl min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain bg-white scrollbar-gutter-stable")} aria-hidden={assistantVisible && assistantFullSize} inert={assistantVisible && assistantFullSize}>
                           {children}
                         </main>
                       </AssistantOpenContext.Provider>
-                      <aside className={clsx(assistantFullSize ? "pl-0" : "pl-4", `min-h-0 min-w-0 shrink-0 overflow-hidden transition-[width] duration-300 ease-in-out motion-reduce:transition-none pr-2 pb-2`, assistantOpen ? "" : "opacity-0")} style={{ width: assistantOpen ? assistantFullSize ? "100%" : "min(390px, 100%)" : "0px" }} aria-hidden={!assistantOpen} inert={!assistantOpen}>
-                        <AgentPanel open={assistantOpen} fullSize={assistantFullSize} onToggleFullSize={() => setAssistantFullSize((current) => !current)} onClose={() => { setAssistantOpen(false); setAssistantFullSize(false); }} />
+                      <aside className={clsx(assistantFullSize ? "pl-0" : "pl-4", `min-h-0 min-w-0 shrink-0 overflow-hidden transition-[width] duration-300 ease-in-out motion-reduce:transition-none pr-2 pb-2`, assistantVisible ? "" : "opacity-0")} style={{ width: assistantVisible ? assistantFullSize ? "100%" : "min(390px, 100%)" : "0px" }} aria-hidden={!assistantVisible} inert={!assistantVisible}>
+                        {assistantEnabled && <AgentPanel open={assistantVisible} fullSize={assistantFullSize} onToggleFullSize={() => setAssistantFullSize((current) => !current)} onClose={() => { setAssistantOpen(false); setAssistantFullSize(false); }} />}
                       </aside>
                     </div>
                   </div>

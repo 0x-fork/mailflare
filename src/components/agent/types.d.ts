@@ -13,7 +13,7 @@ export type AgentActionProposal = { action: "move_email" | "move_emails" | "mark
 export type AgentTurn = { id: string; user: AgentMessage | null; assistant: AgentMessage | null; activity: AgentMessage[]; durationMs: number | null; running: boolean };
 export type AgentTurnProps = { turn: AgentTurn; onOpenDraft: (draftId: string) => void; onApproveDraft: (draftId: string, revision: number) => void; onApproveAction: (item: AgentMessage) => void; approvingId: string | null };
 
-export type AgentSettings = { mailboxId: string; enabled: boolean; autoDraftEnabled: boolean; reviewerUserId: string | null; instructions: string; dailyLimit: number };
+export type AgentSettings = { mailboxId: string; enabled: boolean; modelId: string | null; autoDraftEnabled: boolean; reviewerUserId: string | null; instructions: string; dailyLimit: number };
 
 export type AgentPanelProps = { open: boolean; fullSize: boolean; onClose: () => void; onToggleFullSize: () => void };
 
@@ -21,7 +21,7 @@ export type AgentPanelView = "chat" | "settings";
 export type AgentConversation = { id: string; title: string };
 export type AgentJob = { id: string; status: string; reason: string | null; draftId: string | null; sourceMessageId: string };
 export type AgentProvider = { kind: string; model: string };
-export type AgentSettingsResponse = { settings: AgentSettings; canManage: boolean; canConfigureProvider: boolean; providerConfigured: boolean; provider: AgentProvider | null; autoReplyEnabled: boolean; reviewers: { id: string; name: string; email: string }[] };
+export type AgentSettingsResponse = { settings: AgentSettings; models: string[]; canManage: boolean; canConfigureProvider: boolean; providerConfigured: boolean; provider: AgentProvider | null; autoReplyEnabled: boolean; reviewers: { id: string; name: string; email: string }[] };
 export type AgentConversationsResponse = { conversations: AgentConversation[] };
 export type AgentJobsResponse = { jobs: AgentJob[] };
 export type AgentHistoryResponse = { messages: AgentMessage[] };

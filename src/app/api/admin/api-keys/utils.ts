@@ -8,6 +8,7 @@ import { requireSessionUser } from "@/lib/api/auth";
 import { generateApiKey, parseScopes, scopesToJson } from "@/lib/api-keys";
 import { ADMIN_API_KEY_SCOPES } from "@/lib/api/scopes";
 import { newId } from "@/lib/ids";
+import { hasValidSessionMutationOrigin } from "@/lib/auth/origin";
 
 const adminScopes = new Set<string>(ADMIN_API_KEY_SCOPES);
 const createKeySchema = z.object({
@@ -42,7 +43,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
 	const access = await authorize(request);
 	if (access.error) return access.error;
-	if (request.headers.get("Origin") !== new URL(request.url).origin) return NextResponse.json({ error: "Invalid origin" }, { status: 403 });
+	if (!hasValidSessionMutationOrigin(request)) return NextResponse.json({ error: "Invalid origin" }, { status: 403 });
 	const parsed = createKeySchema.safeParse(await request.json().catch(() => null));
 	if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
 	const db = getDb(access.env);
@@ -63,7 +64,7 @@ export async function POST(request: Request) {
 export async function DELETE(request: Request) {
 	const access = await authorize(request);
 	if (access.error) return access.error;
-	if (request.headers.get("Origin") !== new URL(request.url).origin) return NextResponse.json({ error: "Invalid origin" }, { status: 403 });
+	if (!hasValidSessionMutationOrigin(request)) return NextResponse.json({ error: "Invalid origin" }, { status: 403 });
 	const id = new URL(request.url).searchParams.get("id");
 	if (!id) return NextResponse.json({ error: "Key required" }, { status: 400 });
 	const db = getDb(access.env);

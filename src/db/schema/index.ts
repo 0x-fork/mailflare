@@ -200,6 +200,7 @@ export const apiKeys = sqliteTable("api_keys", {
 	prefix: text("prefix").notNull(),
 	keyHash: text("key_hash").notNull(),
 	scopes: text("scopes").notNull(),
+	mailboxScopeEnabled: integer("mailbox_scope_enabled", { mode: "boolean" }).notNull().default(false),
 	createdAt: integer("created_at", { mode: "timestamp" })
 		.notNull()
 		.$defaultFn(() => new Date()),
@@ -569,11 +570,13 @@ export const appSettings = sqliteTable("app_settings", {
 	id: text("id").primaryKey(),
 	appName: text("app_name").notNull().default("Mailflare"),
 	iconKey: text("icon_key"),
+	agentEnabled: integer("agent_enabled", { mode: "boolean" }).notNull().default(true),
 	agentProvider: text("agent_provider", { enum: ["cloudflare", "compatible"] }),
 	agentPreset: text("agent_preset", { enum: ["openai", "openrouter", "groq", "custom"] }),
 	agentBaseUrl: text("agent_base_url"),
 	agentApiKey: text("agent_api_key"),
 	agentModel: text("agent_model"),
+	agentModelRates: text("agent_model_rates"),
 	updatedAt: integer("updated_at", { mode: "timestamp" })
 		.notNull()
 		.$defaultFn(() => new Date()),
@@ -624,12 +627,24 @@ export const backups = sqliteTable(
 export const mailboxAgentSettings = sqliteTable("mailbox_agent_settings", {
 	mailboxId: text("mailbox_id").primaryKey().references(() => mailboxes.id, { onDelete: "cascade" }),
 	enabled: integer("enabled", { mode: "boolean" }).notNull().default(false),
+	modelId: text("model_id"),
 	autoDraftEnabled: integer("auto_draft_enabled", { mode: "boolean" }).notNull().default(false),
 	reviewerUserId: text("reviewer_user_id").references(() => users.id, { onDelete: "set null" }),
 	instructions: text("instructions").notNull().default(""),
 	dailyLimit: integer("daily_limit").notNull().default(25),
 	updatedAt: integer("updated_at", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
 });
+
+export const aiUsage = sqliteTable("ai_usage", {
+	id: text("id").primaryKey(),
+	createdAt: integer("created_at", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
+	provider: text("provider").notNull(),
+	model: text("model").notNull(),
+	source: text("source").notNull(),
+	inputTokens: integer("input_tokens"),
+	outputTokens: integer("output_tokens"),
+	costUsdMicros: integer("cost_usd_micros"),
+}, (t) => [index("ai_usage_created_idx").on(t.createdAt)]);
 
 export const agentConversations = sqliteTable("agent_conversations", {
 	id: text("id").primaryKey(),
@@ -724,6 +739,7 @@ export const schema = {
 	appSettings,
 	licenseSettings,
 	mailboxAgentSettings,
+	aiUsage,
 	agentConversations,
 	agentChatMessages,
 	agentJobs,

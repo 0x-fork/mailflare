@@ -2,12 +2,14 @@ import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { createWorkersAI } from "workers-ai-provider";
 import { getAgentProviderConfig } from "./provider";
 
-export async function getAgentModel(env: CloudflareEnv) {
+export async function getAgentModel(env: CloudflareEnv, requestedModel?: string | null) {
 	const config = await getAgentProviderConfig(env);
-	if (config.provider === "cloudflare") return env.AI ? createWorkersAI({ binding: env.AI })(config.model) : null;
-	if (config.baseUrl && config.apiKey && config.model) {
+	const modelId = requestedModel && config.models.includes(requestedModel) ? requestedModel : config.model;
+	const details = { modelId, provider: config.provider === "cloudflare" ? "cloudflare" : config.preset, rates: config.rates[modelId] };
+	if (config.provider === "cloudflare") return env.AI ? { model: createWorkersAI({ binding: env.AI })(modelId), ...details } : null;
+	if (config.baseUrl && config.apiKey && modelId) {
 		const provider = createOpenAICompatible({ name: "mailflare", baseURL: config.baseUrl, apiKey: config.apiKey });
-		return provider.chatModel(config.model);
+		return { model: provider.chatModel(modelId), ...details };
 	}
 	return null;
 }

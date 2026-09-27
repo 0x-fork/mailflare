@@ -4,16 +4,17 @@ import "./style.scss"
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
-import { FileText, ListChecks, Maximize2, Minimize2, PenLine, Plus, Send, Settings2, Sparkles, Square, X } from "lucide-react";
+import { ArrowLeft, FileText, ListChecks, Maximize2, Minimize2, PenLine, Plus, Send, Settings2, Sparkles, Square, X } from "lucide-react";
 import { authFetch } from "@/lib/auth/client";
 import { useSelectedMailbox } from "@/components/mailbox-provider";
 import { useCompose } from "@/components/compose/compose-context";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import { AgentTurnView } from "./agent-turn";
 import { SendReview } from "./send-review";
 import type { ReviewSnapshot } from "./send-review-types";
 import { approveAgentAction, requestDraftReview } from "./client-actions";
-import type { AgentConversation, AgentConversationsResponse, AgentErrorResponse, AgentEvent, AgentHistoryResponse, AgentJob, AgentJobsResponse, AgentMessage, AgentPanelProps, AgentPanelView, AgentProvider, AgentSettings, AgentSettingsResponse } from "./types";
+import type { AgentConversation, AgentConversationsResponse, AgentErrorResponse, AgentEvent, AgentHistoryResponse, AgentJob, AgentJobsResponse, AgentMessage, AgentPanelProps, AgentPanelView, AgentSettings, AgentSettingsResponse } from "./types";
 import { appendAgentReasoning, consumeAgentStream, groupAgentMessages, markAgentDraftSent, normalizeAgentHistory, readAgentConversationId, resizeAgentInput, saveAgentConversationId, shouldSubmitAgentInput } from "./utils";
 
 export function AgentPanel({ open, fullSize, onClose, onToggleFullSize }: AgentPanelProps) {
@@ -22,16 +23,15 @@ export function AgentPanel({ open, fullSize, onClose, onToggleFullSize }: AgentP
 	const { openDraftComposer } = useCompose();
 	const [view, setView] = useState<AgentPanelView>("chat");
 	const [settings, setSettings] = useState<AgentSettings | null>(null);
+	const [availableModels, setAvailableModels] = useState<string[]>([]);
 	const [reviewers, setReviewers] = useState<{ id: string; name: string; email: string }[]>([]);
 	const [canManage, setCanManage] = useState(false);
-	const [canConfigureProvider, setCanConfigureProvider] = useState(false);
 	const [providerConfigured, setProviderConfigured] = useState(false);
 	const [autoReplyEnabled, setAutoReplyEnabled] = useState(false);
 	const [conversationId, setConversationId] = useState<string | null>(null);
 	const [conversations, setConversations] = useState<AgentConversation[]>([]);
 	const [messages, setMessages] = useState<AgentMessage[]>([]);
 	const [jobs, setJobs] = useState<AgentJob[]>([]);
-	const [provider, setProvider] = useState<AgentProvider | null>(null);
 	const [input, setInput] = useState("");
 	const [busy, setBusy] = useState(false);
 	const [error, setError] = useState<string | null>(null);
@@ -68,10 +68,9 @@ export function AgentPanel({ open, fullSize, onClose, onToggleFullSize }: AgentP
 		if (settingsResponse.ok) {
 			const data = await settingsResponse.json() as AgentSettingsResponse;
 			setSettings(data.settings);
+			setAvailableModels(data.models ?? []);
 			setCanManage(data.canManage);
-			setCanConfigureProvider(data.canConfigureProvider);
 			setProviderConfigured(data.providerConfigured);
-			setProvider(data.provider ?? null);
 			setAutoReplyEnabled(data.autoReplyEnabled);
 			setReviewers(data.reviewers ?? []);
 		}
@@ -240,37 +239,39 @@ export function AgentPanel({ open, fullSize, onClose, onToggleFullSize }: AgentP
 
 	return <section id="email-assistant-panel" className="flex h-full w-full min-w-0 flex-col overflow-hidden rounded-3xl border border-neutral-200/70 bg-white text-neutral-900 shadow-xl shadow-neutral-300/30" aria-label="Email assistant">
 		<header className="flex h-14 shrink-0 items-center justify-between gap-2 border-b border-neutral-100 pl-4 pr-2">
-			<div className="flex min-w-0 items-center gap-2.5"><Sparkles className="h-5 w-5 shrink-0 fill-blue-400/20 text-blue-600/70" aria-hidden="true" /><div className="min-w-0"><strong className="block truncate text-sm font-semibold">{view === "settings" ? "Settings" : "Assistant"}</strong></div></div>
+			<div className="flex min-w-0 items-center gap-2.5">{view === "settings" ? <button type="button" className="-ml-2 rounded-full p-2 text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900" onClick={() => setView("chat")} aria-label="Back to assistant" title="Back to assistant"><ArrowLeft size={18} /></button> : <Sparkles className="h-5 w-5 shrink-0 fill-blue-400/20 text-blue-600/70" aria-hidden="true" />}<div className="min-w-0"><strong className="block truncate text-sm font-semibold">{view === "settings" ? "Settings" : "Assistant"}</strong></div></div>
 			<div className="flex shrink-0 items-center gap-0.5"><details ref={menuRef} className="relative"><summary className={`list-none cursor-pointer rounded-full p-2 hover:bg-neutral-100 [&::-webkit-details-marker]:hidden ${view === "settings" ? "text-blue-700" : "text-neutral-600 hover:text-neutral-900"}`} aria-label="Assistant conversations and settings"><Settings2 size={18} /></summary><div className="absolute -right-16 top-full z-30 mt-2 flex w-72 flex-col overflow-hidden rounded-2xl border border-neutral-200 bg-white py-2 text-sm shadow-xl"><button type="button" className="flex items-center gap-2 px-4 py-2 text-left text-neutral-800 hover:bg-neutral-50" onClick={() => { abort.current?.abort(); selectedConversationRef.current = null; if (mailboxId) saveAgentConversationId(mailboxId, null); setConversationId(null); setMessages([]); setInput(""); setView("chat"); menuRef.current!.open = false; }}><Plus size={16} /> New chat</button><div className="mx-3 my-2 border-t border-neutral-100" /><p className="px-4 pb-1 text-xs font-medium text-neutral-500">Previous chats</p><div className="max-h-64 overflow-y-auto">{conversations.length ? conversations.map((item) => <button key={item.id} type="button" className={`block w-full truncate px-4 py-2 text-left hover:bg-neutral-50 ${conversationId === item.id ? "bg-blue-50 text-blue-700" : "text-neutral-700"}`} onClick={() => void selectConversation(item.id)}>{item.title}</button>) : <p className="px-4 py-3 text-neutral-500">No previous chats</p>}</div>{conversationId && <button type="button" className="px-4 py-2 text-left text-red-600 hover:bg-red-50" onClick={() => void deleteConversation()}>Delete current chat</button>}<div className="mx-3 my-2 border-t border-neutral-100" /><button type="button" className="flex items-center gap-2 px-4 py-2 text-left text-neutral-800 hover:bg-neutral-50" onClick={() => { setView((current) => current === "settings" ? "chat" : "settings"); menuRef.current!.open = false; }}><Settings2 size={16} /> {view === "settings" ? "Back to chat" : "Settings"}</button></div></details><button type="button" className="rounded-full p-2 text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900" onClick={onToggleFullSize} aria-label={fullSize ? "Exit full size assistant" : "Expand assistant to full size"} aria-pressed={fullSize} title={fullSize ? "Exit full size" : "Full size"}>{fullSize ? <Minimize2 size={18} /> : <Maximize2 size={18} />}</button><button type="button" className="rounded-full p-2 text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900" onClick={onClose} aria-label="Close assistant"><X size={18} /></button></div>
 		</header>
 		{error && <p role="alert" className="mx-4 mt-3 break-words rounded-xl border border-red-100 bg-red-50 p-3 text-sm text-red-700">{error}</p>}
 		{view === "chat" && <>
 			<div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-5 text-sm sm:px-5">
 				<div className="mx-auto max-w-3xl space-y-5">
-					{settings && !settings.enabled && <p className="rounded-2xl border border-blue-100 bg-blue-50 p-3 text-blue-700">The assistant is disabled for this mailbox. Open settings to enable it.</p>}
-					{settings?.enabled && !providerConfigured && <p className="rounded-2xl border border-amber-100 bg-amber-50 p-3 text-amber-800">Configure an AI provider to use chat and auto-drafts.</p>}
-					{messages.length === 0 && settings?.enabled && <div className="pt-3"><label className="mt-1 font-medium leading-tight text-neutral-800">How can I help you today?</label><div className="mt-7 space-y-2">{welcomePrompts.map((item) => { const Icon = item.icon; return <button key={item.label} type="button" className="flex w-full items-center gap-3 rounded-2xl bg-[#f0f3f9] px-3 py-3 text-left transition-colors hover:bg-[#e6ecf6] disabled:cursor-not-allowed disabled:opacity-50" disabled={!settings.enabled || !providerConfigured || busy} onClick={() => void send(item.prompt)}><span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-neutral-800"><Icon size={18} /></span><span className="min-w-0"><span className="block font-medium text-neutral-800">{item.label}</span><span className="block text-xs text-neutral-500">{item.detail}</span></span></button>; })}</div></div>}
+					{settings && !providerConfigured && <p className="rounded-2xl border border-amber-100 bg-amber-50 p-3 text-amber-800">Configure an AI provider to use chat and auto-drafts.</p>}
+					{messages.length === 0 && settings && <div className="pt-3"><label className="mt-1 font-medium leading-tight text-neutral-800">How can I help you today?</label><div className="mt-7 space-y-2">{welcomePrompts.map((item) => { const Icon = item.icon; return <button key={item.label} type="button" className="flex w-full items-center gap-3 rounded-2xl bg-[#f0f3f9] px-3 py-3 text-left transition-colors hover:bg-[#e6ecf6] disabled:cursor-not-allowed disabled:opacity-50" disabled={!providerConfigured || busy} onClick={() => void send(item.prompt)}><span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-neutral-800"><Icon size={18} /></span><span className="min-w-0"><span className="block font-medium text-neutral-800">{item.label}</span><span className="block text-xs text-neutral-500">{item.detail}</span></span></button>; })}</div></div>}
 					{groupAgentMessages(messages).map((turn) => <AgentTurnView key={turn.id} turn={turn} onOpenDraft={openDraftComposer} onApproveDraft={(draftId, revision) => void startDraftReview(draftId, revision)} onApproveAction={(item) => void confirmAction(item)} approvingId={approvingId} />)}
 					{jobs.filter((job) => job.status === "completed" && job.draftId).slice(0, 5).map((job) => <div key={job.id} className="rounded-2xl border border-neutral-200 bg-white p-3"><p>Auto-draft ready</p><div className="mt-2 flex gap-3 text-blue-700"><button type="button" onClick={() => openDraftComposer(job.draftId!)}>Open draft</button><button type="button" disabled={busy} onClick={() => void send(`Read the thread containing email ${job.sourceMessageId} and draft another reply. Preserve the existing draft.`)}>Regenerate</button><button type="button" className="text-red-600" onClick={() => void discardJobDraft(job.draftId!)}>Discard</button></div></div>)}
 				</div>
 			</div>
-			<form className="relative mx-auto w-full max-w-3xl pb-2 px-3" onSubmit={(event) => { event.preventDefault(); void send(input); }}><textarea ref={inputRef} rows={1} className="w-full resize-none rounded-4xl bg-blue-100/40 px-4 py-3 pr-12 text-sm leading-5 outline-none focus:border-blue-300 disabled:opacity-50" value={input} onChange={(event) => setInput(event.target.value)} onKeyDown={(event) => { if (!shouldSubmitAgentInput(event)) return; event.preventDefault(); if (input.trim() && settings?.enabled && providerConfigured && !busy) event.currentTarget.form?.requestSubmit(); }} placeholder="Enter a prompt here" name="message" disabled={!settings?.enabled || !providerConfigured || busy} />
+			<form className="relative mx-auto w-full max-w-3xl pb-2 px-3" onSubmit={(event) => { event.preventDefault(); void send(input); }}><textarea ref={inputRef} rows={1} className="w-full resize-none rounded-4xl bg-blue-100/40 px-4 py-3 pr-12 text-sm leading-5 outline-none focus:border-blue-300 disabled:opacity-50" value={input} onChange={(event) => setInput(event.target.value)} onKeyDown={(event) => { if (!shouldSubmitAgentInput(event)) return; event.preventDefault(); if (input.trim() && settings && providerConfigured && !busy) event.currentTarget.form?.requestSubmit(); }} placeholder="Enter a prompt here" name="message" disabled={!settings || !providerConfigured || busy} />
 				<div className="absolute bottom-5 right-4 flex justify-end gap-2">
 					{busy && <Button type="button" variant="outline" size="sm" onClick={() => abort.current?.abort()}><Square className="h-3 w-3" /> Stop</Button>}
-					<Button type="submit" variant="ghost" size="sm" disabled={!input.trim() || !settings?.enabled || !providerConfigured || busy}><Send size={18} /></Button>
+					<Button type="submit" variant="ghost" size="sm" disabled={!input.trim() || !settings || !providerConfigured || busy}><Send size={18} /></Button>
 				</div>
 			</form>
 		</>}
 		{view === "settings" && <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain p-4 text-sm">
 			{!canManage && <p>Mailbox management permission is required to change these settings.</p>}
-			{settings && <><label className="flex items-center gap-3 rounded-2xl border border-neutral-200 bg-white p-3"><input className="accent-blue-600" type="checkbox" checked={settings.enabled} disabled={!canManage} onChange={(event) => setSettings({ ...settings, enabled: event.target.checked })} /> Enable assistant</label><label className="flex items-center gap-3 rounded-2xl border border-neutral-200 bg-white p-3"><input className="accent-blue-600" type="checkbox" checked={settings.autoDraftEnabled} disabled={!canManage || autoReplyEnabled} onChange={(event) => setSettings({ ...settings, autoDraftEnabled: event.target.checked })} /> Automatically draft replies</label>{autoReplyEnabled && <p className="rounded-xl bg-amber-50 p-3 text-amber-700">Disable out-of-office auto-replies to enable AI drafts.</p>}<label className="block rounded-2xl border border-neutral-200 bg-white p-3">Draft reviewer<select className="mt-2 w-full rounded-xl border border-neutral-200 bg-white p-2 outline-none focus:border-blue-400" value={settings.reviewerUserId ?? ""} disabled={!canManage} onChange={(event) => setSettings({ ...settings, reviewerUserId: event.target.value })}>{reviewers.map((reviewer) => <option key={reviewer.id} value={reviewer.id}>{reviewer.name} ({reviewer.email})</option>)}</select></label><label className="block rounded-2xl border border-neutral-200 bg-white p-3">Writing instructions<textarea className="mt-2 min-h-32 w-full rounded-xl border border-neutral-200 p-2 outline-none focus:border-blue-400" value={settings.instructions} disabled={!canManage} onChange={(event) => setSettings({ ...settings, instructions: event.target.value })} /></label><label className="block rounded-2xl border border-neutral-200 bg-white p-3">Daily auto-draft limit<input className="mt-2 w-full rounded-xl border border-neutral-200 p-2 outline-none focus:border-blue-400" type="number" min="1" max="100" value={settings.dailyLimit} disabled={!canManage} onChange={(event) => setSettings({ ...settings, dailyLimit: Number(event.target.value) })} /></label><Button type="button" size="sm" disabled={!canManage || busy} onClick={() => void saveSettings()}>Save settings</Button></>}
-			<section className="rounded-2xl border border-neutral-200 bg-white p-3" aria-label="AI provider setting">
-				<h2 className="font-medium">AI provider</h2>
-				<p className="mt-1 text-neutral-600">{provider ? `${provider.kind} · ${provider.model}` : "Not configured"}</p>
-				<p className="mt-2 text-xs text-neutral-500">{canConfigureProvider ? <a className="text-blue-700 underline" href="/agent">Configure provider and model in Admin → Agent</a> : "An administrator manages the provider and model in Admin → Agent."}</p>
-			</section>
+			{settings && <>
+				<label className="block">Draft reviewer<select className="mt-2 w-full rounded-xl border border-neutral-200 bg-white p-2 outline-none focus:border-blue-400" value={settings.reviewerUserId ?? ""} disabled={!canManage} onChange={(event) => setSettings({ ...settings, reviewerUserId: event.target.value })}>{reviewers.map((reviewer) => <option key={reviewer.id} value={reviewer.id}>{reviewer.name} ({reviewer.email})</option>)}</select></label>
+				<label className="block">Model<select className="mt-2 w-full rounded-xl border border-neutral-200 bg-white p-2 outline-none focus:border-blue-400" value={settings.modelId ?? ""} disabled={!canManage || !availableModels.length} onChange={(event) => setSettings({ ...settings, modelId: event.target.value })}>{!availableModels.length && <option value="">No models configured</option>}{availableModels.map((model) => <option key={model} value={model}>{model}</option>)}</select></label>
+				<div className="flex items-center justify-between gap-3"><span>Automatically draft replies</span><Switch checked={settings.autoDraftEnabled} disabled={!canManage || autoReplyEnabled} onCheckedChange={(checked) => setSettings({ ...settings, autoDraftEnabled: checked })} aria-label="Automatically draft replies" /></div>
+				{autoReplyEnabled && <p className="text-amber-700">Disable out-of-office auto-replies to enable AI drafts.</p>}
+				<label className="block">Writing instructions<textarea className="mt-2 min-h-32 w-full rounded-xl border border-neutral-200 p-2 outline-none focus:border-blue-400" value={settings.instructions} disabled={!canManage} onChange={(event) => setSettings({ ...settings, instructions: event.target.value })} /></label>
+				<label className="block">Daily auto-draft limit<input className="mt-2 w-full rounded-xl border border-neutral-200 p-2 outline-none focus:border-blue-400" type="number" min="1" max="100" value={settings.dailyLimit} disabled={!canManage} onChange={(event) => setSettings({ ...settings, dailyLimit: Number(event.target.value) })} /></label>
+				<Button type="button" size="sm" disabled={!canManage || busy} onClick={() => void saveSettings()}>Save settings</Button>
+			</>}
 			<p className="text-xs text-neutral-500">Selected email and thread content is sent to the configured AI provider when you use chat or auto-drafts. Drafts always need your confirmation before sending.</p>
-			{jobs.filter((job) => job.status === "failed" || job.status === "skipped").slice(0, 5).map((job) => <p key={job.id} className="rounded-xl border border-neutral-200 bg-white p-3 text-xs">{job.status}: {job.reason}{job.status === "failed" && <button type="button" className="ml-2 text-blue-700 underline" onClick={() => void retryJob(job.id)}>Retry</button>}</p>)}
+			{jobs.filter((job) => job.status === "failed" || job.status === "skipped").slice(0, 5).map((job) => <p key={job.id} className="text-xs">{job.status}: {job.reason}{job.status === "failed" && <button type="button" className="ml-2 text-blue-700 underline" onClick={() => void retryJob(job.id)}>Retry</button>}</p>)}
 		</div>}
 	{draftReview && <SendReview approvalId={draftReview.approvalId} snapshot={draftReview.snapshot} onClose={() => setDraftReview(null)} onSent={() => { setMessages((current) => markAgentDraftSent(current, draftReview.draftId)); setDraftReview(null); void refresh(); }} />}
 	</section>;

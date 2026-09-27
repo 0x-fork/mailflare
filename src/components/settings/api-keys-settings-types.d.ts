@@ -5,6 +5,7 @@ export type ManagedApiKey = {
 	kind: "legacy" | "mcp";
 	scopes: string;
 	mailboxIds: string[];
+	mailboxScopeEnabled: boolean;
 	createdAt: string;
 	lastUsedAt: string | null;
 };
