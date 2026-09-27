@@ -68,6 +68,7 @@ export function createNodeRuntime(): NodeRuntime {
 		APP_URL: optional("APP_URL")?.replace(/\/$/, ""),
 		INBOUND_WEBHOOK_SECRET: optional("INBOUND_WEBHOOK_SECRET"),
 	} as unknown as CloudflareEnv;
+	realtime.bindEnv(env);
 
 	return {
 		env,

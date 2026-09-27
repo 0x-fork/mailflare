@@ -13,6 +13,23 @@ export interface AgentDraftNotification {
 	type: "agent_draft";
 }
 
+export interface MailboxRevisionRow {
+	mailbox_id: string;
+	revision: number;
+	permission: string;
+}
+
+export interface RevisionPing {
+	type: "ping";
+	revision: string | null;
+}
+
+export interface RevisionNotification {
+	type: "revision";
+	revision: string;
+	changed: boolean;
+}
+
 export interface RealtimeNotificationRequest {
 	userIds: string[];
 	payload: NewMessageNotification | AgentDraftNotification;

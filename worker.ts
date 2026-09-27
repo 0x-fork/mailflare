@@ -34,7 +34,9 @@ export default {
 			}
 
 			const hub = env.REALTIME.getByName(user.id);
-			return hub.fetch(new Request("https://mailflare-realtime/connect", request));
+			const hubRequest = new Request("https://mailflare-realtime/connect", request);
+			hubRequest.headers.set("X-Mailflare-Realtime-User", user.id);
+			return hub.fetch(hubRequest);
 		}
 
 		return nextHandler.fetch(request, env, ctx);

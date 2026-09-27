@@ -182,7 +182,7 @@ export function DashboardNav({ className }: { className?: string }) {
       {minimal && <hr className="mx-3 my-2 border-neutral-200/70" />}
       {!minimal && (
         <div className="mt-2 flex h-8 items-center justify-between px-3">
-          <span className="text-xs font-medium uppercase tracking-wide text-neutral-400">
+          <span className="font-medium tracking-wide text-neutral-900 text-sm">
             Folders
           </span>
           {selectedMailbox && (

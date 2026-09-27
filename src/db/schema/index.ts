@@ -77,7 +77,7 @@ export const mailboxes = sqliteTable(
 			.notNull()
 			.$defaultFn(() => new Date()),
 	},
-	(t) => [uniqueIndex("mailboxes_address_idx").on(t.domainId, t.localPart)],
+	(t) => [uniqueIndex("mailboxes_address_idx").on(t.domainId, t.localPart), index("mailboxes_user_idx").on(t.userId)],
 );
 
 export const mailboxAliases = sqliteTable(
@@ -189,6 +189,11 @@ export const folders = sqliteTable(
 		index("folders_mailbox_idx").on(t.mailboxId),
 	],
 );
+
+export const jmapMailboxRevisions = sqliteTable("jmap_mailbox_revisions", {
+	mailboxId: text("mailbox_id").primaryKey(),
+	revision: integer("revision").notNull().default(0),
+});
 
 export const apiKeys = sqliteTable("api_keys", {
 	id: text("id").primaryKey(),
