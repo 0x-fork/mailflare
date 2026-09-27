@@ -12,11 +12,12 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { AgentTurnView } from "./agent-turn";
 import { ConversationSkeleton } from "./conversation-skeleton";
+import { QueuedAgentMessages } from "./queued-messages";
 import { SendReview } from "./send-review";
 import type { ReviewSnapshot } from "./send-review-types";
 import { approveAgentAction, requestDraftReview } from "./client-actions";
-import type { AgentConversation, AgentConversationsResponse, AgentErrorResponse, AgentEvent, AgentHistoryResponse, AgentJob, AgentJobsResponse, AgentMessage, AgentPanelProps, AgentPanelView, AgentSettings, AgentSettingsResponse } from "./types";
-import { appendAgentReasoning, consumeAgentStream, groupAgentMessages, isAgentScrollAtBottom, markAgentDraftSent, normalizeAgentHistory, readAgentConversationId, resizeAgentInput, saveAgentConversationId, shouldSubmitAgentInput, uniqueAgentDraftActions } from "./utils";
+import type { AgentConversation, AgentConversationsResponse, AgentErrorResponse, AgentEvent, AgentHistoryResponse, AgentJob, AgentJobsResponse, AgentMessage, AgentPanelProps, AgentPanelView, AgentSettings, AgentSettingsResponse, QueuedAgentMessage } from "./types";
+import { appendAgentReasoning, consumeAgentStream, editQueuedAgentMessage, enqueueAgentMessage, groupAgentMessages, isAgentScrollAtBottom, markAgentDraftSent, normalizeAgentHistory, readAgentConversationId, removeQueuedAgentMessage, resizeAgentInput, saveAgentConversationId, shouldSubmitAgentInput, steerQueuedAgentMessage, uniqueAgentDraftActions } from "./utils";
 
 export function AgentPanel({ open, fullSize, onClose, onToggleFullSize }: AgentPanelProps) {
 	const { selectedMailbox } = useSelectedMailbox();
@@ -36,11 +37,15 @@ export function AgentPanel({ open, fullSize, onClose, onToggleFullSize }: AgentP
 	const [loadingConversation, setLoadingConversation] = useState(false);
 	const [jobs, setJobs] = useState<AgentJob[]>([]);
 	const [input, setInput] = useState("");
+	const [queuedMessages, setQueuedMessages] = useState<QueuedAgentMessage[]>([]);
 	const [busy, setBusy] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [approvingId, setApprovingId] = useState<string | null>(null);
 	const [draftReview, setDraftReview] = useState<{ approvalId: string; snapshot: ReviewSnapshot; draftId: string } | null>(null);
 	const abort = useRef<AbortController | null>(null);
+	const queuedMessagesRef = useRef<QueuedAgentMessage[]>([]);
+	const runningRef = useRef(false);
+	const queueGenerationRef = useRef(0);
 	const menuRef = useRef<HTMLDetailsElement | null>(null);
 	const inputRef = useRef<HTMLTextAreaElement | null>(null);
 	const chatScrollRef = useRef<HTMLDivElement | null>(null);
@@ -85,6 +90,12 @@ export function AgentPanel({ open, fullSize, onClose, onToggleFullSize }: AgentP
 
 	useEffect(() => {
 		abort.current?.abort();
+		abort.current = null;
+		runningRef.current = false;
+		queueGenerationRef.current += 1;
+		queuedMessagesRef.current = [];
+		setQueuedMessages([]);
+		setBusy(false);
 		if (!open || !mailboxId) return;
 		let cancelled = false;
 		stickToBottomRef.current = true;
@@ -150,6 +161,12 @@ export function AgentPanel({ open, fullSize, onClose, onToggleFullSize }: AgentP
 	async function selectConversation(id: string) {
 		if (!mailboxId) return;
 		abort.current?.abort();
+		abort.current = null;
+		runningRef.current = false;
+		queueGenerationRef.current += 1;
+		queuedMessagesRef.current = [];
+		setQueuedMessages([]);
+		setBusy(false);
 		selectedConversationRef.current = id;
 		stickToBottomRef.current = true;
 		saveAgentConversationId(mailboxId, id);
@@ -179,6 +196,12 @@ export function AgentPanel({ open, fullSize, onClose, onToggleFullSize }: AgentP
 			setConversations((current) => current.filter((item) => item.id !== id));
 			if (selectedConversationRef.current === id || conversationId === id) {
 				abort.current?.abort();
+				abort.current = null;
+				runningRef.current = false;
+				queueGenerationRef.current += 1;
+				queuedMessagesRef.current = [];
+				setQueuedMessages([]);
+				setBusy(false);
 				selectedConversationRef.current = null;
 				if (mailboxId) saveAgentConversationId(mailboxId, null);
 				setConversationId(null);
@@ -192,23 +215,28 @@ export function AgentPanel({ open, fullSize, onClose, onToggleFullSize }: AgentP
 		}
 	}
 
-	async function send(text: string) {
-		if (!mailboxId || !text.trim() || busy || loadingConversation) return;
+	async function send(text: string, queued?: QueuedAgentMessage) {
+		if (!mailboxId || !text.trim() || runningRef.current || loadingConversation) return;
 		const controller = new AbortController();
+		const generation = queueGenerationRef.current;
 		const userMessageId = crypto.randomUUID();
 		const assistantMessageId = crypto.randomUUID();
 		const startedAt = Date.now();
 		let accepted = false;
+		let streamErrored = false;
 		abort.current = controller;
+		runningRef.current = true;
 		setBusy(true);
 		setError(null);
-		setInput("");
 		setMessages((current) => [...current, { id: userMessageId, role: "user", content: text, createdAt: new Date(startedAt).toISOString() }, { id: assistantMessageId, role: "assistant", content: "", pending: true }]);
 		try {
-			const response = await authFetch("/api/agent/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ mailboxId, ...(conversationId ? { conversationId } : {}), text, timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone }), signal: controller.signal });
+			const response = await authFetch("/api/agent/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ mailboxId, ...(selectedConversationRef.current ? { conversationId: selectedConversationRef.current } : {}), text, timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone }), signal: controller.signal });
 			if (!response.ok) throw new Error(((await response.json()) as AgentErrorResponse).error || "Assistant unavailable");
 			accepted = true;
+			const responseConversationId = response.headers.get("X-Conversation-Id");
+			if (responseConversationId && generation === queueGenerationRef.current) { selectedConversationRef.current = responseConversationId; saveAgentConversationId(mailboxId, responseConversationId); setConversationId(responseConversationId); }
 			await consumeAgentStream(response, (event: AgentEvent) => {
+				if (generation !== queueGenerationRef.current) return;
 				if (event.type === "conversation") { selectedConversationRef.current = event.conversationId; saveAgentConversationId(mailboxId, event.conversationId); setConversationId(event.conversationId); }
 				if (event.type === "text") setMessages((current) => current.map((item) => item.id === assistantMessageId ? { ...item, content: item.content + event.text } : item));
 				if (event.type === "reasoning") setMessages((current) => appendAgentReasoning(current, assistantMessageId, event.text));
@@ -219,17 +247,52 @@ export function AgentPanel({ open, fullSize, onClose, onToggleFullSize }: AgentP
 					const toolState = event.state === "running" ? "running" : event.state === "failed" ? "failed" : "used";
 					setMessages((current) => current.some((item) => item.id === toolId) ? current.map((item) => item.id === toolId ? { ...item, toolState, content, recordId: event.recordId } : item) : [...current, { id: toolId, role: "tool", toolName: event.name, toolState, content, recordId: event.recordId }]);
 				}
-				if (event.type === "error") setError(event.message);
+				if (event.type === "error") { streamErrored = true; setError(event.message); }
 			});
-			setMessages((current) => current.map((item) => item.id === assistantMessageId ? { ...item, pending: false, durationMs: Date.now() - startedAt, createdAt: new Date().toISOString() } : item));
-			void refresh();
+			if (generation === queueGenerationRef.current) {
+				setMessages((current) => current.map((item) => item.id === assistantMessageId ? { ...item, pending: false, durationMs: Date.now() - startedAt, createdAt: new Date().toISOString() } : item));
+				void refresh();
+			}
 		} catch (cause) {
+			if (generation !== queueGenerationRef.current) return;
 			if (!accepted) {
 				setMessages((current) => current.filter((item) => item.id !== userMessageId && item.id !== assistantMessageId));
-				if (!controller.signal.aborted) setInput(text);
+				if (!controller.signal.aborted && generation === queueGenerationRef.current) {
+					if (queued) { queuedMessagesRef.current = [queued, ...queuedMessagesRef.current]; setQueuedMessages(queuedMessagesRef.current); }
+					else setInput((current) => current || text);
+				}
 			} else setMessages((current) => current.map((item) => item.id === assistantMessageId ? { ...item, pending: false, durationMs: Date.now() - startedAt, createdAt: new Date().toISOString() } : item));
 			if (!controller.signal.aborted) setError(cause instanceof Error ? cause.message : "Assistant failed");
-		} finally { setBusy(false); }
+			streamErrored = !controller.signal.aborted;
+		} finally {
+			if (abort.current !== controller) return;
+			abort.current = null;
+			runningRef.current = false;
+			setBusy(false);
+			if (generation === queueGenerationRef.current && !streamErrored && queuedMessagesRef.current.length) {
+				const [next, ...remaining] = queuedMessagesRef.current;
+				queuedMessagesRef.current = remaining;
+				setQueuedMessages(remaining);
+				void send(next.text, next);
+			}
+		}
+	}
+
+	function submitMessage(text: string) {
+		if (!mailboxId || !text.trim() || !settings || !providerConfigured || loadingConversation) return;
+		setInput("");
+		if (runningRef.current || queuedMessagesRef.current.length) {
+			queuedMessagesRef.current = enqueueAgentMessage(queuedMessagesRef.current, text);
+			setQueuedMessages(queuedMessagesRef.current);
+			if (!runningRef.current) {
+				const [next, ...remaining] = queuedMessagesRef.current;
+				queuedMessagesRef.current = remaining;
+				setQueuedMessages(remaining);
+				void send(next.text, next);
+			}
+			return;
+		}
+		void send(text.trim());
 	}
 
 	async function saveSettings() {
@@ -280,7 +343,7 @@ export function AgentPanel({ open, fullSize, onClose, onToggleFullSize }: AgentP
 	return <section id="email-assistant-panel" className="flex h-full w-full min-w-0 flex-col overflow-hidden rounded-3xl border border-neutral-200/70 bg-white text-neutral-900 shadow-xl shadow-neutral-300/30" aria-label="Email assistant">
 		<header className="flex h-14 shrink-0 items-center justify-between gap-2 border-b border-neutral-100 pl-4 pr-2">
 			<div className="flex min-w-0 items-center gap-2.5">{view === "settings" ? <button type="button" className="-ml-2 rounded-full p-2 text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900" onClick={() => setView("chat")} aria-label="Back to assistant" title="Back to assistant"><ArrowLeft size={18} /></button> : <Sparkles className="h-5 w-5 shrink-0 fill-blue-400/20 text-blue-600/70" aria-hidden="true" />}<div className="min-w-0"><strong className="block truncate text-sm font-semibold">{view === "settings" ? "Settings" : "Assistant"}</strong></div></div>
-			<div className="flex shrink-0 items-center gap-0.5"><details ref={menuRef} className="relative"><summary className={`list-none cursor-pointer rounded-full p-2 hover:bg-neutral-100 [&::-webkit-details-marker]:hidden ${view === "settings" ? "text-blue-700" : "text-neutral-600 hover:text-neutral-900"}`} aria-label="Assistant conversations and settings"><Settings2 size={18} /></summary><div className="absolute -right-16 top-full z-30 mt-2 flex w-72 flex-col overflow-hidden rounded-2xl border border-neutral-200 bg-white py-2 text-sm shadow-xl"><button type="button" className="flex items-center gap-2 px-4 py-2 text-left text-neutral-800 hover:bg-neutral-50" onClick={() => { abort.current?.abort(); selectedConversationRef.current = null; stickToBottomRef.current = true; if (mailboxId) saveAgentConversationId(mailboxId, null); setConversationId(null); setMessages([]); setLoadingConversation(false); setInput(""); setView("chat"); menuRef.current!.open = false; }}><Plus size={16} /> New chat</button><div className="mx-3 my-2 border-t border-neutral-100" />{conversations.length ? <><p className="px-4 pb-1 text-xs font-medium text-neutral-500">Previous chats</p><div className="max-h-64 overflow-y-auto">{conversations.map((item) => <div key={item.id} className={`group flex items-center hover:bg-neutral-50 ${conversationId === item.id ? "bg-blue-50 text-blue-700" : "text-neutral-700"}`}><button type="button" className="min-w-0 flex-1 truncate py-2 pl-4 pr-2 text-left" onClick={() => void selectConversation(item.id)}>{item.title}</button><button type="button" className="mr-2 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-neutral-500 opacity-0 transition-opacity hover:bg-red-50 hover:text-red-600 focus-visible:opacity-100 group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100" aria-label={`Delete ${item.title}`} title="Delete chat" disabled={deletingConversationId !== null} onClick={() => void deleteConversation(item.id)}><Trash2 size={15} /></button></div>)}</div></> : <p className="px-4 py-3 text-neutral-500">No previous chats</p>}<div className="mx-3 my-2 border-t border-neutral-100" /><button type="button" className="flex items-center gap-2 px-4 py-2 text-left text-neutral-800 hover:bg-neutral-50" onClick={() => { setView((current) => current === "settings" ? "chat" : "settings"); menuRef.current!.open = false; }}><Settings2 size={16} /> {view === "settings" ? "Back to chat" : "Settings"}</button></div></details><button type="button" className="rounded-full p-2 text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900" onClick={onToggleFullSize} aria-label={fullSize ? "Exit full size assistant" : "Expand assistant to full size"} aria-pressed={fullSize} title={fullSize ? "Exit full size" : "Full size"}>{fullSize ? <Minimize2 size={18} /> : <Maximize2 size={18} />}</button><button type="button" className="rounded-full p-2 text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900" onClick={onClose} aria-label="Close assistant"><X size={18} /></button></div>
+			<div className="flex shrink-0 items-center gap-0.5"><details ref={menuRef} className="relative"><summary className={`list-none cursor-pointer rounded-full p-2 hover:bg-neutral-100 [&::-webkit-details-marker]:hidden ${view === "settings" ? "text-blue-700" : "text-neutral-600 hover:text-neutral-900"}`} aria-label="Assistant conversations and settings"><Settings2 size={18} /></summary><div className="absolute -right-16 top-full z-30 mt-2 flex w-72 flex-col overflow-hidden rounded-2xl border border-neutral-200 bg-white py-2 text-sm shadow-xl"><button type="button" className="flex items-center gap-2 px-4 py-2 text-left text-neutral-800 hover:bg-neutral-50" onClick={() => { abort.current?.abort(); abort.current = null; runningRef.current = false; queueGenerationRef.current += 1; queuedMessagesRef.current = []; setQueuedMessages([]); setBusy(false); selectedConversationRef.current = null; stickToBottomRef.current = true; if (mailboxId) saveAgentConversationId(mailboxId, null); setConversationId(null); setMessages([]); setLoadingConversation(false); setInput(""); setView("chat"); menuRef.current!.open = false; }}><Plus size={16} /> New chat</button><div className="mx-3 my-2 border-t border-neutral-100" />{conversations.length ? <><p className="px-4 pb-1 text-xs font-medium text-neutral-500">Previous chats</p><div className="max-h-64 overflow-y-auto">{conversations.map((item) => <div key={item.id} className={`group flex items-center hover:bg-neutral-50 ${conversationId === item.id ? "bg-blue-50 text-blue-700" : "text-neutral-700"}`}><button type="button" className="min-w-0 flex-1 truncate py-2 pl-4 pr-2 text-left" onClick={() => void selectConversation(item.id)}>{item.title}</button><button type="button" className="mr-2 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-neutral-500 opacity-0 transition-opacity hover:bg-red-50 hover:text-red-600 focus-visible:opacity-100 group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100" aria-label={`Delete ${item.title}`} title="Delete chat" disabled={deletingConversationId !== null} onClick={() => void deleteConversation(item.id)}><Trash2 size={15} /></button></div>)}</div></> : <p className="px-4 py-3 text-neutral-500">No previous chats</p>}<div className="mx-3 my-2 border-t border-neutral-100" /><button type="button" className="flex items-center gap-2 px-4 py-2 text-left text-neutral-800 hover:bg-neutral-50" onClick={() => { setView((current) => current === "settings" ? "chat" : "settings"); menuRef.current!.open = false; }}><Settings2 size={16} /> {view === "settings" ? "Back to chat" : "Settings"}</button></div></details><button type="button" className="rounded-full p-2 text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900" onClick={onToggleFullSize} aria-label={fullSize ? "Exit full size assistant" : "Expand assistant to full size"} aria-pressed={fullSize} title={fullSize ? "Exit full size" : "Full size"}>{fullSize ? <Minimize2 size={18} /> : <Maximize2 size={18} />}</button><button type="button" className="rounded-full p-2 text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900" onClick={onClose} aria-label="Close assistant"><X size={18} /></button></div>
 		</header>
 		{error && <p role="alert" className="mx-4 mt-3 break-words rounded-xl border border-red-100 bg-red-50 p-3 text-sm text-red-700">{error}</p>}
 		{view === "chat" && <>
@@ -288,15 +351,16 @@ export function AgentPanel({ open, fullSize, onClose, onToggleFullSize }: AgentP
 				<div className="mx-auto max-w-3xl space-y-5">
 					{settings && !providerConfigured && <p className="rounded-2xl border border-amber-100 bg-amber-50 p-3 text-amber-800">Configure an AI provider to use chat and auto-drafts.</p>}
 					{loadingConversation && <ConversationSkeleton />}
-					{!loadingConversation && messages.length === 0 && settings && <div className="pt-3"><label className="agent-welcome-heading mt-1 font-medium leading-tight text-neutral-800">How can I help you today?</label><div className="mt-7 space-y-2">{welcomePrompts.map((item) => { const Icon = item.icon; return <button key={item.label} type="button" className="agent-welcome-prompt flex w-full items-center gap-3 rounded-2xl bg-[#f0f3f9] px-3 py-3 text-left transition-colors hover:bg-[#e6ecf6] disabled:cursor-not-allowed disabled:opacity-50" disabled={!providerConfigured || busy} onClick={() => void send(item.prompt)}><span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-neutral-800"><Icon size={18} /></span><span className="min-w-0"><span className="block font-medium text-neutral-800">{item.label}</span><span className="block text-xs text-neutral-500">{item.detail}</span></span></button>; })}</div></div>}
+					{!loadingConversation && messages.length === 0 && settings && <div className="pt-3"><label className="agent-welcome-heading mt-1 font-medium leading-tight text-neutral-800">How can I help you today?</label><div className="mt-7 space-y-2">{welcomePrompts.map((item) => { const Icon = item.icon; return <button key={item.label} type="button" className="agent-welcome-prompt flex w-full items-center gap-3 rounded-2xl bg-[#f0f3f9] px-3 py-3 text-left transition-colors hover:bg-[#e6ecf6] disabled:cursor-not-allowed disabled:opacity-50" disabled={!providerConfigured || busy} onClick={() => submitMessage(item.prompt)}><span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-neutral-800"><Icon size={18} /></span><span className="min-w-0"><span className="block font-medium text-neutral-800">{item.label}</span><span className="block text-xs text-neutral-500">{item.detail}</span></span></button>; })}</div></div>}
 					{groupAgentMessages(messages).map((turn) => <AgentTurnView key={turn.id} turn={turn} draftActions={draftActions} onOpenDraft={openDraftComposer} onApproveDraft={(draftId, revision) => void startDraftReview(draftId, revision)} onApproveAction={(item) => void confirmAction(item)} approvingId={approvingId} />)}
-					{jobs.filter((job) => job.status === "completed" && job.draftId).slice(0, 5).map((job) => <div key={job.id} className="rounded-2xl border border-neutral-200 bg-white p-3"><p>Auto-draft ready</p><div className="mt-2 flex gap-3 text-blue-700"><button type="button" onClick={() => openDraftComposer(job.draftId!)}>Open draft</button><button type="button" disabled={busy} onClick={() => void send(`Read the thread containing email ${job.sourceMessageId} and draft another reply. Preserve the existing draft.`)}>Regenerate</button><button type="button" className="text-red-600" onClick={() => void discardJobDraft(job.draftId!)}>Discard</button></div></div>)}
+					{jobs.filter((job) => job.status === "completed" && job.draftId).slice(0, 5).map((job) => <div key={job.id} className="rounded-2xl border border-neutral-200 bg-white p-3"><p>Auto-draft ready</p><div className="mt-2 flex gap-3 text-blue-700"><button type="button" onClick={() => openDraftComposer(job.draftId!)}>Open draft</button><button type="button" disabled={busy} onClick={() => submitMessage(`Read the thread containing email ${job.sourceMessageId} and draft another reply. Preserve the existing draft.`)}>Regenerate</button><button type="button" className="text-red-600" onClick={() => void discardJobDraft(job.draftId!)}>Discard</button></div></div>)}
 				</div>
 			</div>
-			<form className="relative mx-auto w-full max-w-3xl pb-2 px-3" onSubmit={(event) => { event.preventDefault(); void send(input); }}><textarea ref={inputRef} rows={1} className="block w-full resize-none rounded-4xl bg-blue-100/40 px-4 py-3 pr-12 text-sm leading-5 outline-none focus:border-blue-300 disabled:opacity-50" value={input} onChange={(event) => setInput(event.target.value)} onKeyDown={(event) => { if (!shouldSubmitAgentInput(event)) return; event.preventDefault(); if (input.trim() && settings && providerConfigured && !busy && !loadingConversation) event.currentTarget.form?.requestSubmit(); }} placeholder="Enter a prompt here" name="message" disabled={!settings || !providerConfigured || busy || loadingConversation} />
+			<QueuedAgentMessages messages={queuedMessages} running={busy} onRemove={(id) => { queuedMessagesRef.current = removeQueuedAgentMessage(queuedMessagesRef.current, id); setQueuedMessages(queuedMessagesRef.current); }} onEdit={(id, text) => { queuedMessagesRef.current = editQueuedAgentMessage(queuedMessagesRef.current, id, text); setQueuedMessages(queuedMessagesRef.current); }} onSteer={(id) => { queuedMessagesRef.current = steerQueuedAgentMessage(queuedMessagesRef.current, id); setQueuedMessages(queuedMessagesRef.current); if (runningRef.current) abort.current?.abort(); else { const [next, ...remaining] = queuedMessagesRef.current; if (next) { queuedMessagesRef.current = remaining; setQueuedMessages(remaining); void send(next.text, next); } } }} />
+			<form className="relative mx-auto w-full max-w-3xl pb-2 px-3" onSubmit={(event) => { event.preventDefault(); submitMessage(input); }}><textarea ref={inputRef} rows={1} className="block w-full resize-none rounded-4xl bg-blue-100/40 px-4 py-3 pr-20 text-sm leading-5 outline-none focus:border-blue-300 disabled:opacity-50" value={input} onChange={(event) => setInput(event.target.value)} onKeyDown={(event) => { if (!shouldSubmitAgentInput(event)) return; event.preventDefault(); if (input.trim() && settings && providerConfigured && !loadingConversation) event.currentTarget.form?.requestSubmit(); }} placeholder="Enter a prompt here" name="message" disabled={!settings || !providerConfigured || loadingConversation} />
 				<div className="absolute bottom-3.5 right-4 flex justify-end gap-2">
-					{busy ? <Button type="button" variant="ghost" size="sm" onClick={() => abort.current?.abort()} className="bg-neutral-500/10 text-neutral-500 rounded-full"><Pause size={16} /></Button> :
-						<Button type="submit" variant="ghost" size="sm" disabled={!input.trim() || !settings || !providerConfigured || busy || loadingConversation}><Send size={18} /></Button>}
+					{busy && <Button type="button" variant="ghost" size="sm" onClick={() => abort.current?.abort()} className="bg-neutral-500/10 text-neutral-500 rounded-full" aria-label="Stop response" title="Stop response"><Pause size={16} /></Button>}
+					<Button type="submit" variant="ghost" size="sm" disabled={!input.trim() || !settings || !providerConfigured || loadingConversation} aria-label={busy ? "Queue message" : "Send message"} title={busy ? "Queue message" : "Send message"}><Send size={18} /></Button>
 				</div>
 			</form>
 		</>}

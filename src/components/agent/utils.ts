@@ -1,5 +1,22 @@
 import type { KeyboardEvent } from "react";
-import type { AgentActionProposal, AgentDraftAction, AgentEmailReference, AgentEvent, AgentMessage, AgentTurn } from "./types";
+import type { AgentActionProposal, AgentDraftAction, AgentEmailReference, AgentEvent, AgentMessage, AgentTurn, QueuedAgentMessage } from "./types";
+
+export function enqueueAgentMessage(messages: QueuedAgentMessage[], text: string): QueuedAgentMessage[] {
+	return [...messages, { id: crypto.randomUUID(), text: text.trim() }];
+}
+
+export function removeQueuedAgentMessage(messages: QueuedAgentMessage[], id: string): QueuedAgentMessage[] {
+	return messages.filter((item) => item.id !== id);
+}
+
+export function editQueuedAgentMessage(messages: QueuedAgentMessage[], id: string, text: string): QueuedAgentMessage[] {
+	return messages.map((item) => item.id === id ? { ...item, text: text.trim() } : item);
+}
+
+export function steerQueuedAgentMessage(messages: QueuedAgentMessage[], id: string): QueuedAgentMessage[] {
+	const selected = messages.find((item) => item.id === id);
+	return selected ? [selected, ...messages.filter((item) => item.id !== id)] : messages;
+}
 
 export async function consumeAgentStream(response: Response, onEvent: (event: AgentEvent) => void) {
 	if (!response.body) throw new Error("Assistant stream is unavailable");
