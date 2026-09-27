@@ -368,6 +368,7 @@ export const calendarEvents = sqliteTable(
 		description: text("description").notNull().default(""),
 		location: text("location").notNull().default(""),
 		attendees: text("attendees").notNull().default("[]"),
+		color: text("color").notNull().default("blue"),
 		startsAt: integer("starts_at", { mode: "timestamp" }).notNull(),
 		endsAt: integer("ends_at", { mode: "timestamp" }).notNull(),
 		createdAt: integer("created_at", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),

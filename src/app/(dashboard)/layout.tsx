@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { HelpCircle, Sparkles } from "lucide-react";
 import { AuthGuard } from "@/components/auth/auth-guard";
 import { ComposeProvider } from "@/components/compose/compose-context";
@@ -15,6 +16,7 @@ import { AssistantOpenContext } from "@/components/agent/assistant-open-state";
 import { Button } from "@/components/ui/button";
 import { LicenseIndicator } from "@/components/license-indicator";
 import { DashboardNav } from "@/components/dashboard-nav";
+import { SidebarHeader } from "@/components/sidebar-header";
 import { SidebarProvider } from "@/components/sidebar-state";
 import { SidebarResizeBoundary } from "@/components/sidebar-resize-boundary";
 import { ShortcutsProvider } from "@/components/shortcuts";
@@ -30,6 +32,8 @@ export default function DashboardLayout({
   const { assistantOpen, setAssistantOpen, assistantFullSize, setAssistantFullSize } = useDashboardState();
   const assistantEnabled = useAssistantAvailability();
   const assistantVisible = assistantEnabled === true && assistantOpen;
+  const pathname = usePathname();
+  const isCalendarPage = pathname === "/calendar" || pathname.startsWith("/calendar/");
 
   useEffect(() => {
     if (assistantEnabled === false && (assistantOpen || assistantFullSize)) {
@@ -45,30 +49,31 @@ export default function DashboardLayout({
           <ComposeProvider>
             <MailSearchProvider>
               <ShortcutsProvider>
-                <div className="grid h-dvh grid-cols-[var(--sidebar-width)_minmax(0,1fr)] overflow-hidden bg-[#f6f8fc] transition-[grid-template-columns]" style={{ transitionDuration: "var(--sidebar-transition-duration)" }}>
-                  <aside className="relative min-h-0 min-w-0">
+                <div className={clsx("grid h-dvh overflow-hidden bg-[#f6f8fc] transition-[grid-template-columns]", isCalendarPage ? "grid-cols-[minmax(0,1fr)]" : "grid-cols-[var(--sidebar-width)_minmax(0,1fr)]")} style={{ transitionDuration: "var(--sidebar-transition-duration)" }}>
+                  {!isCalendarPage && <aside className="relative min-h-0 min-w-0">
                     <div className="h-full overflow-y-auto overscroll-contain px-3 py-4 scrollbar-gutter-stable">
                       <DashboardNav />
                     </div>
                     <SidebarResizeBoundary />
-                  </aside>
+                  </aside>}
                   <div className="flex min-h-0 min-w-0 flex-col">
                     <header className="flex h-16 w-full shrink-0 items-center gap-3 pr-4 text-sm">
-                      <MailSearchInput />
-                      <Link
+                      {isCalendarPage && <div className="shrink-0 px-3 transition-[width] duration-200 ease-in-out motion-reduce:transition-none [&>div]:mb-0" style={{ width: "calc(var(--sidebar-width) + 1.5rem)" }}><SidebarHeader href="/inbox" /></div>}
+                      {isCalendarPage ? <div id="calendar-header-slot" className="flex min-w-0 flex-1 items-center" /> : <MailSearchInput />}
+                      {/* <Link
                         href="/settings/account"
                         className="flex h-10 w-10 items-center justify-center rounded-full text-neutral-600 hover:bg-neutral-200"
                         title="Account Settings"
                       >
                         <HelpCircle className="h-5 w-5" />
-                      </Link>
+                      </Link> */}
                       <LicenseIndicator />
                       {assistantEnabled && <Button type="button" variant="ghost" size="sm" className={assistantOpen ? "bg-blue-50 text-blue-700" : "text-neutral-600"} onClick={() => { setAssistantOpen((current) => !current); setAssistantFullSize(false); }} aria-label={assistantOpen ? "Close email assistant" : "Open email assistant"} aria-expanded={assistantOpen} aria-controls="email-assistant-panel"><Sparkles className="h-5 w-5" /></Button>}
                       <MailboxSelector />
                     </header>
                     <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden">
                       <AssistantOpenContext.Provider value={assistantVisible}>
-                        <main className={clsx("rounded-t-3xl min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain bg-white scrollbar-gutter-stable")} aria-hidden={assistantVisible && assistantFullSize} inert={assistantVisible && assistantFullSize}>
+                        <main className={clsx("min-h-0 min-w-0 flex-1 overscroll-contain scrollbar-gutter-stable", isCalendarPage ? "overflow-hidden bg-[#f6f8fc]" : "rounded-t-3xl overflow-y-auto bg-white")} aria-hidden={assistantVisible && assistantFullSize} inert={assistantVisible && assistantFullSize}>
                           {children}
                         </main>
                       </AssistantOpenContext.Provider>
