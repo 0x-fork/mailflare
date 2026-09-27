@@ -31,10 +31,20 @@ Want to support the mailflare? <a target="_blank" href="https://store.paymug.co/
 - Get real-time inbox updates and new-message notifications.
 - Import and export mail, manage contacts, and block unwanted senders.
 - Manage accounts, permissions, API keys, webhooks, audit logs, and database backups.
+- Use an AI assistant to search mail, work with threads, and prepare drafts for a selected mailbox.
+- Connect external AI clients through MCP with mailbox or admin permissions chosen for each key.
 
 ## How it works
 
 Mailflare runs in your Cloudflare account. Email Routing delivers incoming messages to the app, while Cloudflare's email service handles outgoing messages. Your mail data stays in your own D1 database and attachments are stored in your own R2 bucket.
+
+## Email assistant and MCP
+
+Configure the AI provider in **Admin → Agent**. Mailflare supports Cloudflare Workers AI and OpenAI-compatible providers. You can configure multiple models, then choose a model for each mailbox in the assistant's **Settings** view. Assistant chat is available by default once a provider is configured; an admin can turn it off in **Admin → Agent**. The assistant works within the selected mailbox. Mailbox managers can set writing instructions, a draft reviewer, and a daily auto-draft limit. Automatic reply drafts are off until enabled for that mailbox, and a person must review a draft before sending it. **Admin → Agent → View Usage** shows AI request totals, estimated spend, daily usage, and a paginated activity log.
+
+To connect an external AI client, create a key in **Settings → API keys** and enable **Allow MCP access**. Choose the permitted mailboxes and mail tools. After creation, copy the key or the ready-made AI agent instructions; the key is shown only once. Connect the client to `https://<your-mailflare-origin>/mcp` using Streamable HTTP and `Authorization: Bearer <key>`. Mail MCP access is limited to the selected mailboxes and the key owner's current permissions. An alias shares its parent mailbox, so selecting that mailbox also includes mail delivered to its aliases. The MCP `request_send` tool creates a review request; sending still requires confirmation in Mailflare. MCP mail tools do not require an AI provider.
+
+For management tools, create a separate MCP key in **Admin → API keys**. Its selected domain, account, and mailbox management permissions do not grant access to mail content. This page also provides copyable AI agent instructions after key creation.
 
 ## How much does it cost?
 
