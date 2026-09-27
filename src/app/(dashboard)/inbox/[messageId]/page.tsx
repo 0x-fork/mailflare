@@ -144,14 +144,12 @@ export default function MessageDetailPage() {
   const cloudAttachmentResult = extractCloudAttachments(
     bodyDisplay.latestContent,
   );
-  return (
-    <div className="h-full overflow-y-auto overscroll-contain scrollbar-gutter-stable">
-      {!message.read && <MarkAsRead messageId={message.id} />}
-      <div className="flex py-2 h-14 items-center justify-between px-2 border-b border-neutral-200 sticky top-0 bg-white z-40 gap-4">
-        <Tooltip label={  assistantVisible ? null : messageListVisible ? "Hide email list" : "Show email list"} className="hidden lg:inline-flex"><button type="button" className={clsx( assistantVisible ? "opacity-40" : messageListVisible ? "" : "opacity-60 hover:opacity-100", !assistantVisible && "hover:bg-neutral-100 hover:text-neutral-900",  "relative z-10 shrink-0 rounded-full p-2 text-neutral-600 duration-200")} onClick={toggleMessageList} disabled={assistantVisible} aria-label={messageListVisible ? "Hide email list" : "Show email list"} aria-pressed={messageListVisible}><Columns2 size={18} /></button></Tooltip>
-        <Tooltip label="Show email list" className="inline-flex lg:hidden"><Link href={pathname.slice(0, pathname.lastIndexOf("/")) || "/inbox"} className="relative z-10 inline-flex shrink-0 rounded-full p-2 text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900" aria-label="Show email list"><Columns2 size={18} /></Link></Tooltip>
-        <div className="min-w-0 flex-1" />
-        {/* <div className="flex items-center flex-row gap-6">
+  return (<>
+
+    <div className="flex py-2 h-14 items-center justify-between px-2 border-b border-neutral-200 sticky top-0 bg-white z-40 gap-4">
+      <Tooltip label={assistantVisible ? null : messageListVisible ? "Hide email list" : "Show email list"} className="hidden lg:inline-flex"><button type="button" className={clsx(assistantVisible ? "opacity-40" : messageListVisible ? "" : "opacity-60 hover:opacity-100", !assistantVisible && "hover:bg-neutral-100 hover:text-neutral-900", "relative z-10 shrink-0 rounded-full p-2 text-neutral-600 duration-200")} onClick={toggleMessageList} disabled={assistantVisible} aria-label={messageListVisible ? "Hide email list" : "Show email list"} aria-pressed={messageListVisible}><Columns2 size={18} /></button></Tooltip>
+      <div className="min-w-0 flex-1" />
+      {/* <div className="flex items-center flex-row gap-6">
 					<Link
 						href={getMessageBackHref(message.direction, message.status)}
 						className="rounded-full p-2 text-neutral-600 hover:bg-neutral-100"
@@ -159,25 +157,28 @@ export default function MessageDetailPage() {
 						<ArrowLeft className="h-5 w-5" />
 					</Link>
 				</div> */}
-        <MessageActions
-          messageId={message.id}
-          mailboxId={message.mailboxId}
-          senderAddress={message.fromAddr}
-          direction={message.direction}
-          status={message.status}
-          read={message.read}
-          unsubscribeUrl={data.unsubscribeUrl}
-          subject={message.subject}
-          bodyText={body?.textBody}
-          ownAddress={ownAddress}
-          ownAddresses={ownAddresses}
-          message={message}
-          messageMeta={message}
-          bodyHtml={body?.htmlBody}
-        />
-      </div>
-      
-      <h1 className={clsx(!isAnyPanelVisible ? "pl-16" : "pl-10","pr-6 pb-2 pt-4 text-2xl font-medium text-neutral-900")} title={message.subject ?? "(no subject)"}>
+      <MessageActions
+        messageId={message.id}
+        mailboxId={message.mailboxId}
+        senderAddress={message.fromAddr}
+        direction={message.direction}
+        status={message.status}
+        read={message.read}
+        unsubscribeUrl={data.unsubscribeUrl}
+        subject={message.subject}
+        bodyText={body?.textBody}
+        ownAddress={ownAddress}
+        ownAddresses={ownAddresses}
+        message={message}
+        messageMeta={message}
+        bodyHtml={body?.htmlBody}
+      />
+    </div>
+
+    <div className="h-full overflow-y-auto overscroll-contain scrollbar-gutter-stable">
+      {!message.read && <MarkAsRead messageId={message.id} />}
+
+      <h1 className={clsx(!isAnyPanelVisible ? "pl-16" : "pl-10", "pr-6 pb-2 pt-4 text-2xl font-medium text-neutral-900")} title={message.subject ?? "(no subject)"}>
         {message.subject ?? "(no subject)"}
       </h1>
       <div className="px-6">
@@ -353,6 +354,7 @@ export default function MessageDetailPage() {
         }}
       />
     </div>
+  </>
   );
 }
 
