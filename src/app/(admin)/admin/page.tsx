@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { BadgeDollarSign, Bot, Globe2, KeyRound, Mail, Palette, Settings, Users, Webhook } from "lucide-react";
+import { BadgeDollarSign, Bot, Globe2, KeyRound, Mail, Palette, Users } from "lucide-react";
 import { AdminUpdateCard } from "@/components/admin-update-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 

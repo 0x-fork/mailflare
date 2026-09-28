@@ -181,7 +181,7 @@ export default function MessageDetailPage() {
       <h1 className={clsx(!isAnyPanelVisible ? "pl-16" : "pl-10", "pr-6 pb-2 pt-4 text-2xl font-medium text-neutral-900")} title={message.subject ?? "(no subject)"}>
         {message.subject ?? "(no subject)"}
       </h1>
-      <div className="px-6">
+      {/* <div className="px-6">
         <div className="mx-auto w-full max-w-[640px]">
           <SpamScoreDetails
             score={message.spamScore}
@@ -190,7 +190,7 @@ export default function MessageDetailPage() {
             analysisError={message.spamAnalysisError}
           />
         </div>
-      </div>
+      </div> */}
       <ConversationThread
         currentMessageId={message.id}
         position={latestMessagesFirst ? "after" : "before"}

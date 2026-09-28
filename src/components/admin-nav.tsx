@@ -38,12 +38,12 @@ const sections = [
   {
     label: "Administration",
     links: [
+      { href: "/api-keys", label: "API keys", icon: KeyRound },
       { href: "/general", label: "General", icon: Settings },
       { href: "/agent", label: "Agent", icon: Bot },
       { href: "/accounts", label: "Accounts", icon: Users },
       { href: "/activity", label: "Activity", icon: Activity },
       { href: "/backups", label: "Backups", icon: DatabaseBackup },
-      { href: "/api-keys", label: "API keys", icon: KeyRound },
     ],
   },
   {
