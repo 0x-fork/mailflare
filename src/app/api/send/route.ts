@@ -46,6 +46,7 @@ export async function POST(request: Request) {
 			userId: user.id,
 			...parsed.data,
 			attachments,
+			publicOrigin: new URL(request.url).origin,
 		});
 		return NextResponse.json(result);
 	} catch (err) {

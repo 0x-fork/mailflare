@@ -10,7 +10,7 @@ import { getEmailAddress } from "@/lib/email/address";
 import { sendMailboxAutoReply } from "@/lib/email/auto-reply";
 import { getMailboxAccessLevel } from "@/lib/mailboxes/access";
 import { listMessageAttachments, storeMessageAttachments } from "@/lib/email/attachments";
-import { selectInboundAttachments } from "@/lib/email/inbound-attachments";
+import { inboundAttachmentLimitReason } from "@/lib/email/inbound-attachments";
 import { inboundMessageId } from "@/lib/email/inbound-id";
 import { getUnsubscribeUrlFromRawR2Key } from "@/lib/email/unsubscribe";
 import { resolveThreadId } from "@/lib/email/threading";
@@ -78,6 +78,12 @@ export async function processInboundMessage(
 
 	const buffer = await raw.arrayBuffer();
 	const parsed = await parseRawMime(buffer);
+	const attachmentLimitReason = inboundAttachmentLimitReason(parsed.attachments);
+	if (attachmentLimitReason) {
+		console.warn(`Inbound attachment limit reached for ${payload.to}: ${attachmentLimitReason}`);
+		await env.BUCKET.delete(payload.rawR2Key);
+		return;
+	}
 	const messageId = await inboundMessageId(payload.rawR2Key);
 	const snippet = buildSnippet(parsed.text, parsed.html);
 	const deliveredAddress = getEmailAddress(payload.to) || `${decision.mailbox.localPart}@${decision.mailbox.hostname}`;
@@ -161,11 +167,7 @@ export async function processInboundMessage(
 		}).onConflictDoNothing().returning({ id: messages.id });
 		if (!inserted.length) return;
 
-		const attachments = selectInboundAttachments(parsed.attachments);
-		if (attachments.length !== parsed.attachments.length) {
-			console.warn(`Inbound attachment limits omitted ${parsed.attachments.length - attachments.length} files for ${messageId}`);
-		}
-		await storeMessageAttachments(env, messageId, attachments);
+		await storeMessageAttachments(env, messageId, parsed.attachments);
 		if (spamAnalysis) {
 			try {
 				await recordReputationObservation(env, decision.mailbox.mailboxId, getReputationKeys(parsed, spamAnalysis.fingerprint));
@@ -233,11 +235,10 @@ export async function storeRawToR2(
 	env: CloudflareEnv,
 	from: string,
 	to: string,
-	raw: ReadableStream<Uint8Array>,
+	raw: ArrayBuffer,
 ): Promise<string> {
 	const key = `inbound/${Date.now()}-${newId()}.eml`;
-	const buffer = await new Response(raw).arrayBuffer();
-	await env.BUCKET.put(key, buffer, {
+	await env.BUCKET.put(key, raw, {
 		httpMetadata: { contentType: "message/rfc822" },
 		customMetadata: { from, to },
 	});

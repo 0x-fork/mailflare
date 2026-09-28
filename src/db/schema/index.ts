@@ -331,6 +331,13 @@ export const messageAttachments = sqliteTable(
 	(t) => [index("message_attachments_message_idx").on(t.messageId)],
 );
 
+export const sharedAttachmentLinks = sqliteTable("shared_attachment_links", {
+	id: text("id").primaryKey(),
+	attachmentId: text("attachment_id").notNull().references(() => messageAttachments.id, { onDelete: "cascade" }).unique(),
+	expiresAt: integer("expires_at", { mode: "timestamp" }).notNull(),
+	createdAt: integer("created_at", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
+});
+
 export const outboundJobs = sqliteTable("outbound_jobs", {
 	id: text("id").primaryKey(),
 	userId: text("user_id")
@@ -576,6 +583,7 @@ export const backupSettings = sqliteTable("backup_settings", {
 export const appSettings = sqliteTable("app_settings", {
 	id: text("id").primaryKey(),
 	appName: text("app_name").notNull().default("Mailflare"),
+	outboundAttachmentMaxMb: integer("outbound_attachment_max_mb").notNull().default(25),
 	iconKey: text("icon_key"),
 	agentEnabled: integer("agent_enabled", { mode: "boolean" }).notNull().default(true),
 	agentProvider: text("agent_provider", { enum: ["cloudflare", "compatible"] }),
@@ -734,6 +742,7 @@ export const schema = {
 	spamReputation,
 	spamFeedback,
 	messageAttachments,
+	sharedAttachmentLinks,
 	outboundJobs,
 	emailTemplates,
 	calendarEvents,

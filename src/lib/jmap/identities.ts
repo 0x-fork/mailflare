@@ -92,6 +92,7 @@ export const emailSubmissionSet: JmapMethodHandler = async (ctx, args) => {
 				threadId: draft.threadId,
 				mailboxId: identity.mailboxId,
 				attachments,
+				publicOrigin: ctx.origin,
 			});
 			try {
 				await deleteMessageWithObjects(ctx.env, ctx.db, draft.id, draft.rawR2Key);

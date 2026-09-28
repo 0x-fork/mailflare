@@ -38,6 +38,7 @@ const sections = [
   {
     label: "Administration",
     links: [
+      { href: "/general", label: "General", icon: Settings },
       { href: "/agent", label: "Agent", icon: Bot },
       { href: "/accounts", label: "Accounts", icon: Users },
       { href: "/activity", label: "Activity", icon: Activity },

@@ -29,6 +29,7 @@ import {
 } from "./rich-text-utils";
 import { headerToRecipients, isValidRecipient, recipientsToHeader } from "./recipient-utils";
 import type { ComposeAttachment, ComposeStoredAttachment, ComposeThreading } from "./types";
+import type { ComposeAttachmentPolicy } from "./attachment-policy-types";
 
 type Toast = { type: "success" | "error"; message: string } | null;
 
@@ -59,6 +60,7 @@ export function ComposeForm({
 	const [attachments, setAttachments] = useState<ComposeAttachment[]>([]);
 	// Attachments the draft already holds server-side (a forwarded message's files).
 	const [storedAttachments, setStoredAttachments] = useState<ComposeStoredAttachment[]>([]);
+	const [attachmentPolicy, setAttachmentPolicy] = useState<ComposeAttachmentPolicy>({ maxMb: 25, cloudThresholdBytes: 3_000_000 });
 	const [draggingFiles, setDraggingFiles] = useState(false);
 	const [modalMode, setModalMode] = useState(false);
 	const [toast, setToast] = useState<Toast>(null);
@@ -78,6 +80,14 @@ export function ComposeForm({
 	useEffect(() => {
 		if (!selectedMailbox && mailboxes.length === 1) setSelectedMailbox(mailboxes[0]);
 	}, [mailboxes, selectedMailbox, setSelectedMailbox]);
+
+	useEffect(() => {
+		let active = true;
+		void authFetch("/api/attachment-policy", { cache: "no-store" }).then(async (response) => {
+			if (response.ok && active) setAttachmentPolicy((await response.json()) as ComposeAttachmentPolicy);
+		}).catch(() => {});
+		return () => { active = false; };
+	}, []);
 
 	const senderAddresses = useMemo(() => {
 		if (!selectedMailbox) return [];
@@ -376,12 +386,12 @@ export function ComposeForm({
 			setToast({ type: "error", message: "A message can include at most 10 attachments" });
 			return;
 		}
-		if (nextFiles.some((file) => file.size > 10 * 1024 * 1024)) {
-			setToast({ type: "error", message: "Each attachment must be 10 MB or smaller" });
+		if (nextFiles.some((file) => file.size > attachmentPolicy.maxMb * 1_000_000)) {
+			setToast({ type: "error", message: `Each attachment must be ${attachmentPolicy.maxMb} MB or smaller` });
 			return;
 		}
-		if (totalSize > 20 * 1024 * 1024) {
-			setToast({ type: "error", message: "Attachments must total 20 MB or less" });
+		if (totalSize > attachmentPolicy.maxMb * 1_000_000) {
+			setToast({ type: "error", message: `Attachments must total ${attachmentPolicy.maxMb} MB or less` });
 			return;
 		}
 
@@ -426,6 +436,7 @@ export function ComposeForm({
 	}
 
 	const attachmentContent = (attachments.length > 0 || storedAttachments.length > 0) && (
+		<div>
 		<div className="flex min-w-0 flex-nowrap gap-2 overflow-x-auto overflow-y-hidden px-3 py-2">
 			{storedAttachments.map((attachment) => (
 				<div
@@ -470,6 +481,8 @@ export function ComposeForm({
 					</button>
 				</div>
 			))}
+		</div>
+		<p className="px-3 pb-2 text-xs text-amber-700">Cloudflare limits general email messages to 5 MiB including encoding. Files over 3 MB{([...attachments.map((item) => item.file.size), ...storedAttachments.map((item) => item.size)].some((size) => size > attachmentPolicy.cloudThresholdBytes)) ? " here will" : " or files that exceed the message budget may"} be sent as 30-day R2 download links.</p>
 		</div>
 	);
 
@@ -638,7 +651,7 @@ export function ComposeForm({
 								className="hidden"
 								onChange={(event) => addAttachments(event.target.files)}
 							/>
-							<Tooltip label="Attach files">
+							<Tooltip label={`Attach files (up to ${attachmentPolicy.maxMb} MB total). Files over 3 MB are sent as 30-day R2 download links.`}>
 								<button
 									type="button"
 									aria-label="Attach files"

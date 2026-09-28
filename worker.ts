@@ -11,6 +11,7 @@ import { processWebhookRetry, type WebhookRetryMessage } from "./src/lib/email/w
 import { resolveIncomingMail, forwardMessage } from "./src/lib/email/incoming";
 import { getUserFromSession } from "./src/lib/auth/session";
 import { getSessionTokenFromRequest } from "./src/lib/realtime/utils";
+import { inboundAttachmentLimitReasonFromRaw } from "./src/lib/email/inbound-attachments";
 import { hasValidSessionMutationOrigin } from "./src/lib/auth/origin";
 import {
 	getAccountForwardingDestination,
@@ -48,12 +49,22 @@ export default {
 
 	async email(message: ForwardableEmailMessage, env: CloudflareEnv, ctx: ExecutionContext) {
 		try {
+			if (message.rawSize > 25 * 1024 * 1024) {
+				message.setReject("Message rejected: raw email exceeds the 25 MiB receiving limit. Send a download link instead.");
+				return;
+			}
 			// Domain routing rules are resolved here rather than in the queue because reject and
 			// forward can only be actioned on the live ForwardableEmailMessage.
 			const decision = await resolveIncomingMail(env, message.from, message.to);
 
 			if (decision?.action === "reject") {
 				message.setReject(decision.rejectReason ?? "Message rejected by routing rule");
+				return;
+			}
+			const raw = await new Response(message.raw).arrayBuffer();
+			const attachmentLimitReason = await inboundAttachmentLimitReasonFromRaw(raw);
+			if (attachmentLimitReason) {
+				message.setReject(attachmentLimitReason);
 				return;
 			}
 
@@ -70,7 +81,7 @@ export default {
 					await forwardMessage(message, forwardingDestination);
 				}
 			}
-			const rawR2Key = await storeRawToR2(env, message.from, message.to, message.raw);
+			const rawR2Key = await storeRawToR2(env, message.from, message.to, raw);
 			const payload: InboundQueueMessage = {
 				from: message.from,
 				to: message.to,

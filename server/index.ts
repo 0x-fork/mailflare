@@ -80,7 +80,7 @@ async function main() {
 		startSmtpListener(env, runtime.mailer, {
 			port: smtpPort,
 			host: process.env.SMTP_INBOUND_HOST,
-			maxSize: Number(process.env.SMTP_MAX_SIZE ?? 25 * 1024 * 1024),
+			maxSize: Number(process.env.SMTP_MAX_SIZE ?? 36 * 1024 * 1024),
 			hostname: process.env.MAIL_HOSTNAME,
 			tls: process.env.SMTP_TLS_KEY && process.env.SMTP_TLS_CERT ? { keyPath: process.env.SMTP_TLS_KEY, certPath: process.env.SMTP_TLS_CERT } : null,
 		});

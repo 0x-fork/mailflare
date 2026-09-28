@@ -72,7 +72,7 @@ export async function getAgentSendRequest(env: CloudflareEnv, user: SessionUser,
 	return { approvalId, status: approval.status, draftId: approval.draftId, messageId: approval.messageId, expiresAt: approval.expiresAt, snapshot: current, stale };
 }
 
-export async function confirmAgentSend(env: CloudflareEnv, user: SessionUser, approvalId: string) {
+export async function confirmAgentSend(env: CloudflareEnv, user: SessionUser, approvalId: string, publicOrigin?: string) {
 	const db = getDb(env);
 	const [approval] = await db.select().from(agentSendApprovals).where(and(eq(agentSendApprovals.id, approvalId), eq(agentSendApprovals.userId, user.id))).limit(1);
 	if (!approval) throw new Error("Approval not found");
@@ -95,6 +95,7 @@ export async function confirmAgentSend(env: CloudflareEnv, user: SessionUser, ap
 		inReplyTo: draft.inReplyTo, references: draft.references, threadId: draft.threadId,
 			attachments: await loadMessageAttachmentContents(env, draft.id),
 			scheduledAt: metadata.scheduledAt ?? undefined,
+			publicOrigin,
 		});
 		await db.update(agentSendApprovals).set({ status: "sent", messageId: result.messageId }).where(eq(agentSendApprovals.id, approvalId));
 		await db.update(messages).set({ status: "trash" }).where(and(eq(messages.id, draft.id), eq(messages.status, "draft")));
