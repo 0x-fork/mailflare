@@ -1,7 +1,9 @@
 "use client";
 
 import { createContext, useContext, useEffect, useLayoutEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import { readColumnWidth, readInitialColumnWidth, saveColumnWidth } from "./column-width-preferences";
+import { isMobileViewport, useIsMobile } from "./sidebar-mobile-utils";
 import { readInitialSidebarMinimal, saveInitialSidebarMinimal, syncInitialSidebarWidth } from "./sidebar-state-utils";
 import type { SidebarProviderProps, SidebarState } from "./sidebar-state-types";
 
@@ -14,6 +16,17 @@ export function SidebarProvider({ children, expandedWidth = 260 }: SidebarProvid
 	const [widthReady, setWidthReady] = useState(false);
 	const [userId, setUserId] = useState<string | null>(null);
 	const [storageKey, setStorageKey] = useState<string | null>(null);
+	const pathname = usePathname();
+	const mobile = useIsMobile();
+
+	// Collapse on first load and after every navigation on phones, so the overlay never sticks open.
+	useEffect(() => {
+		if (mobile) setMinimal(true);
+	}, [pathname, mobile]);
+
+	useEffect(() => {
+		if (!mobile) setMinimal(readInitialSidebarMinimal());
+	}, [mobile]);
 
 	useLayoutEffect(() => {
 		setMinimal(readInitialSidebarMinimal());
@@ -41,6 +54,7 @@ export function SidebarProvider({ children, expandedWidth = 260 }: SidebarProvid
 					setUserId(userId);
 					const key = `mailflare-sidebar-minimal:${userId}`;
 				setStorageKey(key);
+		if (isMobileViewport()) return;
 				try {
 						const storedMinimal = localStorage.getItem(key);
 						const savedMinimal = storedMinimal === null ? readInitialSidebarMinimal() : storedMinimal === "true";
@@ -61,14 +75,18 @@ export function SidebarProvider({ children, expandedWidth = 260 }: SidebarProvid
 		if (forcedMinimal) {
 			setForcedMinimal(false);
 			setMinimal(false);
-			saveInitialSidebarMinimal(false);
-			if (storageKey) localStorage.setItem(storageKey, "false");
+			if (!isMobileViewport()) {
+				saveInitialSidebarMinimal(false);
+				if (storageKey) localStorage.setItem(storageKey, "false");
+			}
 			return;
 		}
 		setMinimal((current) => {
 			const next = !current;
-			saveInitialSidebarMinimal(next);
-			if (storageKey) localStorage.setItem(storageKey, String(next));
+			if (!isMobileViewport()) {
+				saveInitialSidebarMinimal(next);
+				if (storageKey) localStorage.setItem(storageKey, String(next));
+			}
 			return next;
 		});
 	}

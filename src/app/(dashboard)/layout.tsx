@@ -49,8 +49,8 @@ export default function DashboardLayout({
           <ComposeProvider>
             <MailSearchProvider>
               <ShortcutsProvider>
-                <div className={clsx("grid h-dvh overflow-hidden bg-[#f6f8fc] transition-[grid-template-columns]", isCalendarPage ? "grid-cols-[minmax(0,1fr)]" : "grid-cols-[var(--sidebar-width)_minmax(0,1fr)]")} style={{ transitionDuration: "var(--sidebar-transition-duration)" }}>
-                  {!isCalendarPage && <aside className="relative min-h-0 min-w-0">
+                <div className={clsx("grid h-dvh overflow-hidden bg-[#f6f8fc] transition-[grid-template-columns]", isCalendarPage ? "grid-cols-[minmax(0,1fr)]" : "grid-cols-[72px_minmax(0,1fr)] md:grid-cols-[var(--sidebar-width)_minmax(0,1fr)]")} style={{ transitionDuration: "var(--sidebar-transition-duration)" }}>
+                  {!isCalendarPage && <aside className="relative z-30 w-[var(--sidebar-width)] min-h-0 min-w-0 bg-[#f6f8fc]">
                     <div className="h-full overflow-y-auto overscroll-contain px-3 py-4 scrollbar-gutter-stable">
                       <DashboardNav />
                     </div>
