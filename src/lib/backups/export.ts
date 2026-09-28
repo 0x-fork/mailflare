@@ -23,7 +23,14 @@ const INTERNAL_TABLE_PATTERNS = ["sqlite_%", "_cf%", "messages_fts%"];
  * The search index is derived data: its triggers repopulate it as messages are
  * restored, so it is neither exported nor part of the coverage check.
  */
-const INTERNAL_TABLES = ["d1_migrations"];
+const INTERNAL_TABLES = [
+	"d1_migrations",
+	// JMAP state counters, also derived: the jmap_messages_* triggers on
+	// `messages` insert and bump a row per mailbox as messages are restored.
+	// Exporting it would make restore fail, since the triggers recreate these
+	// primary keys before the table's own rows would be inserted.
+	"jmap_mailbox_revisions",
+];
 
 /**
  * Fails the backup when the database contains a table BACKUP_TABLES does not
