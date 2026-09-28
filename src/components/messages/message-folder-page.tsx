@@ -7,11 +7,10 @@ import { ChevronLeft, ChevronRight, ListFilter } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tooltip } from "@/components/ui/tooltip";
-import { useCompose } from "@/components/compose/compose-context";
 import { useMailSearch } from "@/components/mail-search/mail-search-context";
 import { useSelectedMailbox } from "@/components/mailbox-provider";
 import { usePageLoading } from "@/components/page-loading";
-import { useIsMobile } from "@/components/sidebar-state";
+import { useIsMobile } from "@/components/sidebar-mobile-utils";
 import { useMessageCounts } from "@/hooks/use-message-counts";
 import { useMessages } from "@/hooks/use-messages";
 import type { BulkMessageAction } from "@/app/api/messages/bulk/types";
@@ -50,7 +49,6 @@ function MessageListRow({
 	dragMessageIds,
 }: MessageListRowProps) {
 	const Icon = config.icon;
-	const { openDraftComposer } = useCompose();
 	const [read, setRead] = useState(message.read);
 	const [threadUnread, setThreadUnread] = useState(message.threadUnread);
 	const [starred, setStarred] = useState(message.starred);
@@ -186,9 +184,9 @@ function MessageListRow({
 					className="h-4 w-4 rounded border-neutral-300"
 					aria-label="Select message"
 				/>
-				<button type="button" className="contents text-left" onClick={() => openDraftComposer(message.id)}>
+				<Link href={href} className="contents text-left">
 					{content}
-				</button>
+				</Link>
 			</div>
 		);
 	}

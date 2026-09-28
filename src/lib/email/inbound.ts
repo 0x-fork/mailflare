@@ -10,6 +10,8 @@ import { getEmailAddress } from "@/lib/email/address";
 import { sendMailboxAutoReply } from "@/lib/email/auto-reply";
 import { getMailboxAccessLevel } from "@/lib/mailboxes/access";
 import { listMessageAttachments, storeMessageAttachments } from "@/lib/email/attachments";
+import { inboundAttachmentLimitReason } from "@/lib/email/inbound-attachments";
+import { inboundMessageId } from "@/lib/email/inbound-id";
 import { getUnsubscribeUrlFromRawR2Key } from "@/lib/email/unsubscribe";
 import { resolveThreadId } from "@/lib/email/threading";
 import type { SessionUser } from "@/lib/auth/types";
@@ -20,6 +22,7 @@ import {
 	getMailboxNotificationUserIds,
 	notifyUsersOfNewMessage,
 } from "@/lib/realtime/utils";
+import { scheduleAutoDraft } from "@/lib/agent/jobs/utils";
 
 export type InboundQueueMessage = {
 	from: string;
@@ -59,7 +62,13 @@ export async function processInboundMessage(
 		eq(messages.mailboxId, decision.mailbox.mailboxId),
 		eq(messages.rawR2Key, payload.rawR2Key),
 	)).limit(1);
-	if (stored) return;
+	if (stored) {
+		try {
+			const [existing] = await db.select().from(messages).where(eq(messages.id, stored.id)).limit(1);
+			if (existing && Date.now() - existing.createdAt.getTime() < 30 * 60_000) await scheduleAutoDraft(env, { mailboxId: decision.mailbox.mailboxId, sourceMessageId: existing.id, ownerUserId: decision.mailbox.userId, sender: existing.fromAddr, headers: payload.headers, status: existing.status, folderId: existing.folderId, spamVerdict: existing.spamVerdict, spamAnalysisError: existing.spamAnalysisError });
+		} catch (error) { console.error("Auto-draft recovery failed", error); }
+		return;
+	}
 
 	const raw = await env.BUCKET.get(payload.rawR2Key);
 	if (!raw) {
@@ -69,7 +78,13 @@ export async function processInboundMessage(
 
 	const buffer = await raw.arrayBuffer();
 	const parsed = await parseRawMime(buffer);
-	const messageId = newId("msg");
+	const attachmentLimitReason = inboundAttachmentLimitReason(parsed.attachments);
+	if (attachmentLimitReason) {
+		console.warn(`Inbound attachment limit reached for ${payload.to}: ${attachmentLimitReason}`);
+		await env.BUCKET.delete(payload.rawR2Key);
+		return;
+	}
+	const messageId = await inboundMessageId(payload.rawR2Key);
 	const snippet = buildSnippet(parsed.text, parsed.html);
 	const deliveredAddress = getEmailAddress(payload.to) || `${decision.mailbox.localPart}@${decision.mailbox.hostname}`;
 	// Keep the whole To header so reply-all can address everyone; rules and
@@ -125,7 +140,7 @@ export async function processInboundMessage(
 	});
 
 	try {
-		await db.insert(messages).values({
+		const inserted = await db.insert(messages).values({
 			id: messageId,
 			userId: decision.mailbox.userId,
 			mailboxId: decision.mailbox.mailboxId,
@@ -149,9 +164,10 @@ export async function processInboundMessage(
 			spamSignals: spamAnalysis ? JSON.stringify(spamAnalysis.signals) : null,
 			spamAnalyzedAt: spamAnalysis ? new Date() : null,
 			spamAnalysisError,
-		});
+		}).onConflictDoNothing().returning({ id: messages.id });
+		if (!inserted.length) return;
 
-		await storeMessageAttachments(env, messageId, parsed.attachments, { validate: false });
+		await storeMessageAttachments(env, messageId, parsed.attachments);
 		if (spamAnalysis) {
 			try {
 				await recordReputationObservation(env, decision.mailbox.mailboxId, getReputationKeys(parsed, spamAnalysis.fingerprint));
@@ -210,17 +226,19 @@ export async function processInboundMessage(
 		spamScore: spamAnalysis?.score,
 		spamVerdict: spamAnalysis?.verdict,
 	});
+	try {
+		await scheduleAutoDraft(env, { mailboxId: decision.mailbox.mailboxId, sourceMessageId: messageId, ownerUserId: decision.mailbox.userId, sender: fromAddr, headers: payload.headers, status, folderId, spamVerdict: spamAnalysis?.verdict, spamAnalysisError });
+	} catch (error) { console.error("Auto-draft scheduling failed", error); }
 }
 
 export async function storeRawToR2(
 	env: CloudflareEnv,
 	from: string,
 	to: string,
-	raw: ReadableStream<Uint8Array>,
+	raw: ArrayBuffer,
 ): Promise<string> {
 	const key = `inbound/${Date.now()}-${newId()}.eml`;
-	const buffer = await new Response(raw).arrayBuffer();
-	await env.BUCKET.put(key, buffer, {
+	await env.BUCKET.put(key, raw, {
 		httpMetadata: { contentType: "message/rfc822" },
 		customMetadata: { from, to },
 	});

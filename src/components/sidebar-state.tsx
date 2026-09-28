@@ -1,25 +1,11 @@
 "use client";
 
+import { createContext, useContext, useEffect, useLayoutEffect, useState } from "react";
 import { usePathname } from "next/navigation";
-import { createContext, useContext, useEffect, useState, useSyncExternalStore } from "react";
-import { readColumnWidth } from "./column-width-preferences";
+import { readColumnWidth, readInitialColumnWidth, saveColumnWidth } from "./column-width-preferences";
+import { isMobileViewport, useIsMobile } from "./sidebar-mobile-utils";
+import { readInitialSidebarMinimal, saveInitialSidebarMinimal, syncInitialSidebarWidth } from "./sidebar-state-utils";
 import type { SidebarProviderProps, SidebarState } from "./sidebar-state-types";
-
-// Below md the sidebar is a 72px icon rail; expanding it overlays the content instead of squeezing it.
-const mobileQuery = "(max-width: 767px)";
-const isMobile = () => window.matchMedia(mobileQuery).matches;
-
-export function useIsMobile() {
-	return useSyncExternalStore(
-		(onChange) => {
-			const media = window.matchMedia(mobileQuery);
-			media.addEventListener("change", onChange);
-			return () => media.removeEventListener("change", onChange);
-		},
-		isMobile,
-		() => false,
-	);
-}
 
 const SidebarContext = createContext<SidebarState>({ minimal: false, width: 260, userId: null, toggle: () => undefined, setWidth: () => undefined, setForcedMinimal: () => undefined });
 
@@ -27,14 +13,31 @@ export function SidebarProvider({ children, expandedWidth = 260 }: SidebarProvid
 	const [minimal, setMinimal] = useState(false);
 	const [forcedMinimal, setForcedMinimal] = useState(false);
 	const [width, setWidth] = useState(expandedWidth);
+	const [widthReady, setWidthReady] = useState(false);
 	const [userId, setUserId] = useState<string | null>(null);
 	const [storageKey, setStorageKey] = useState<string | null>(null);
 	const pathname = usePathname();
+	const mobile = useIsMobile();
 
 	// Collapse on first load and after every navigation on phones, so the overlay never sticks open.
 	useEffect(() => {
-		if (isMobile()) setMinimal(true);
-	}, [pathname]);
+		if (mobile) setMinimal(true);
+	}, [pathname, mobile]);
+
+	useEffect(() => {
+		if (!mobile) setMinimal(readInitialSidebarMinimal());
+	}, [mobile]);
+
+	useLayoutEffect(() => {
+		setMinimal(readInitialSidebarMinimal());
+		setWidth(readInitialColumnWidth("sidebar", expandedWidth, 200, 480));
+		const frame = requestAnimationFrame(() => setWidthReady(true));
+		return () => cancelAnimationFrame(frame);
+	}, [expandedWidth]);
+
+	useLayoutEffect(() => {
+		syncInitialSidebarWidth(width, minimal);
+	}, [width, minimal]);
 
 	useEffect(() => {
 		// The sidebar preference is cosmetic, so every failure here degrades to the default.
@@ -51,10 +54,16 @@ export function SidebarProvider({ children, expandedWidth = 260 }: SidebarProvid
 					setUserId(userId);
 					const key = `mailflare-sidebar-minimal:${userId}`;
 				setStorageKey(key);
-				if (isMobile()) return;
+		if (isMobileViewport()) return;
 				try {
-						setMinimal(localStorage.getItem(key) === "true");
-						setWidth(readColumnWidth(userId, "sidebar", expandedWidth, 200, 480));
+						const storedMinimal = localStorage.getItem(key);
+						const savedMinimal = storedMinimal === null ? readInitialSidebarMinimal() : storedMinimal === "true";
+						setMinimal(savedMinimal);
+						saveInitialSidebarMinimal(savedMinimal);
+						localStorage.setItem(key, String(savedMinimal));
+						const savedWidth = readColumnWidth(userId, "sidebar", readInitialColumnWidth("sidebar", expandedWidth, 200, 480), 200, 480);
+						setWidth(savedWidth);
+						saveColumnWidth(userId, "sidebar", savedWidth);
 				} catch {
 					// Storage can be unavailable in private windows; keep the default.
 				}
@@ -66,19 +75,25 @@ export function SidebarProvider({ children, expandedWidth = 260 }: SidebarProvid
 		if (forcedMinimal) {
 			setForcedMinimal(false);
 			setMinimal(false);
-			if (storageKey && !isMobile()) localStorage.setItem(storageKey, "false");
+			if (!isMobileViewport()) {
+				saveInitialSidebarMinimal(false);
+				if (storageKey) localStorage.setItem(storageKey, "false");
+			}
 			return;
 		}
 		setMinimal((current) => {
 			const next = !current;
-			if (storageKey && !isMobile()) localStorage.setItem(storageKey, String(next));
+			if (!isMobileViewport()) {
+				saveInitialSidebarMinimal(next);
+				if (storageKey) localStorage.setItem(storageKey, String(next));
+			}
 			return next;
 		});
 	}
 
 	return (
 		<SidebarContext.Provider value={{ minimal: minimal || forcedMinimal, width, userId, toggle, setWidth, setForcedMinimal }}>
-			<div className="h-full" style={{ "--sidebar-width": `${minimal || forcedMinimal ? 72 : width}px` } as React.CSSProperties}>
+			<div className="h-full" style={{ "--sidebar-width": widthReady ? `${minimal || forcedMinimal ? 72 : width}px` : `var(--persisted-sidebar-width, ${expandedWidth}px)`, "--sidebar-transition-duration": widthReady ? "200ms" : "0ms" } as React.CSSProperties}>
 				{children}
 			</div>
 		</SidebarContext.Provider>

@@ -1,7 +1,8 @@
-import type { DatabaseBackupDocument, DatabaseBackupTable, DatabaseRecord } from "./types";
+import type { BackupTableGroupId, DatabaseBackupDocument, DatabaseBackupTable, DatabaseRecord } from "./types";
 import { mergeLegacyMessageBodies } from "./utils";
+import { BACKUP_TABLE_GROUPS, getSelectedBackupTables } from "./table-groups";
 
-const BACKUP_TABLES: DatabaseBackupTable[] = ["users", "domains", "mailboxes", "mailbox_access", "contacts", "folders", "api_keys", "messages", "message_attachments", "outbound_jobs", "routing_rules", "webhooks", "webhook_deliveries", "sessions", "audit_logs", "backup_settings", "backups", "app_settings", "license_settings", "email_templates", "calendar_events", "auto_reply_deliveries", "spam_token_stats", "spam_reputation", "spam_feedback", "mailbox_aliases", "password_reset_tokens", "mfa_recovery_codes", "login_challenges"];
+const BACKUP_TABLES: DatabaseBackupTable[] = ["users", "domains", "mailboxes", "mailbox_access", "contacts", "folders", "api_keys", "messages", "message_attachments", "outbound_jobs", "routing_rules", "webhooks", "webhook_deliveries", "sessions", "audit_logs", "backup_settings", "backups", "app_settings", "license_settings", "email_templates", "calendar_events", "auto_reply_deliveries", "spam_token_stats", "spam_reputation", "spam_feedback", "mailbox_aliases", "password_reset_tokens", "mfa_recovery_codes", "login_challenges", "mailbox_agent_settings", "agent_conversations", "agent_chat_messages", "agent_jobs", "agent_draft_metadata", "agent_send_approvals", "mcp_key_mailboxes", 'ai_usage'];
 /**
  * Tables every backup document must contain. Tables added to BACKUP_TABLES
  * after the format shipped are absent from older documents, so they stay
@@ -39,31 +40,36 @@ export async function assertBackupTablesCoverDatabase(db: D1Database): Promise<v
 		.all<{ name: string }>();
 	const covered = new Set<string>(BACKUP_TABLES);
 	const unlisted = result.results.map((row) => row.name).filter((name) => !covered.has(name));
-	if (unlisted.length === 0) return;
-	throw new Error(
-		`Backup aborted: ${unlisted.join(", ")} not listed in BACKUP_TABLES, so this backup would omit them. Add them to BACKUP_TABLES in src/lib/backups/export.ts.`,
-	);
+	if (unlisted.length) throw new Error(`Backup aborted: ${unlisted.join(", ")} not listed in BACKUP_TABLES. Add new tables to src/lib/backups/export.ts and assign each to a group in table-groups.ts.`);
+	const assigned = BACKUP_TABLE_GROUPS.flatMap((group) => group.tables);
+	const ungrouped = BACKUP_TABLES.filter((table) => assigned.filter((item) => item === table).length !== 1);
+	const unknown = assigned.filter((table) => !covered.has(table));
+	if (ungrouped.length || unknown.length) throw new Error(`Backup aborted: table groups are out of sync (${[...ungrouped, ...unknown].join(", ")}). Update src/lib/backups/table-groups.ts.`);
 }
 
-export async function exportDatabaseRecords(db: D1Database): Promise<Uint8Array> {
+export async function exportDatabaseRecords(db: D1Database, excludedGroups: BackupTableGroupId[] = []): Promise<Uint8Array> {
 	await assertBackupTablesCoverDatabase(db);
-	const tables = {} as Record<DatabaseBackupTable, DatabaseRecord[]>;
-	for (const table of BACKUP_TABLES) {
+	const selected = getSelectedBackupTables(excludedGroups);
+	const includedTables = BACKUP_TABLES.filter((table) => selected.has(table));
+	if (!includedTables.length) throw new Error("Select at least one backup table group");
+	const tables: DatabaseBackupDocument["tables"] = {};
+	for (const table of includedTables) {
 		const result = await db.prepare(`SELECT * FROM ${table}`).all<DatabaseRecord>();
 		tables[table] = result.results;
 	}
-	const document: DatabaseBackupDocument = { format: "mailflare-database-backup", version: 1, createdAt: new Date().toISOString(), tables };
+	const document: DatabaseBackupDocument = { format: "mailflare-database-backup", version: 1, createdAt: new Date().toISOString(), includedTables, tables };
 	return new TextEncoder().encode(JSON.stringify(document));
 }
 
 export async function restoreDatabaseRecords(db: D1Database, content: ArrayBuffer): Promise<void> {
 	const document = parseDatabaseBackup(content);
+	if (document.includedTables && document.includedTables.length !== BACKUP_TABLES.length) throw new Error("This backup contains selected table groups only. Restore requires a backup that includes every table group.");
 	mergeLegacyMessageBodies(document);
 	fillMissingBackupTables(document);
 	validateDatabaseBackup(document);
 	for (const table of [...BACKUP_TABLES].reverse()) await db.prepare(`DELETE FROM ${table}`).run();
 	for (const table of BACKUP_TABLES) {
-		const rows = document.tables[table];
+		const rows = document.tables[table] ?? [];
 		for (let index = 0; index < rows.length; index += INSERT_BATCH_SIZE) {
 			const statements = rows.slice(index, index + INSERT_BATCH_SIZE).map((row) => createInsertStatement(db, table, row));
 			if (statements.length > 0) await db.batch(statements);
@@ -82,7 +88,10 @@ function isDatabaseBackupDocument(value: unknown): value is DatabaseBackupDocume
 	if (!value || typeof value !== "object") return false;
 	const document = value as Partial<DatabaseBackupDocument>;
 	if (document.format !== "mailflare-database-backup" || document.version !== 1 || !document.tables) return false;
-	if (!REQUIRED_BACKUP_TABLES.every((table) => Array.isArray(document.tables?.[table]))) return false;
+	if (document.includedTables) {
+		if (!Array.isArray(document.includedTables) || !document.includedTables.length || new Set(document.includedTables).size !== document.includedTables.length) return false;
+		if (!document.includedTables.every((table) => BACKUP_TABLES.includes(table) && Array.isArray(document.tables?.[table]))) return false;
+	} else if (!REQUIRED_BACKUP_TABLES.every((table) => Array.isArray(document.tables?.[table]))) return false;
 	return BACKUP_TABLES.every((table) => {
 		const rows = document.tables?.[table];
 		return rows === undefined || Array.isArray(rows);
@@ -106,7 +115,7 @@ function fillMissingBackupTables(document: DatabaseBackupDocument): void {
 
 function validateDatabaseBackup(document: DatabaseBackupDocument): void {
 	for (const table of BACKUP_TABLES) {
-		for (const row of document.tables[table]) {
+		for (const row of document.tables[table] ?? []) {
 			if (!row || typeof row !== "object" || Array.isArray(row)) {
 				throw new Error(`Backup contains an invalid ${table} record`);
 			}
