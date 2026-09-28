@@ -14,6 +14,7 @@ import { inboundAttachmentLimitReason } from "@/lib/email/inbound-attachments";
 import { inboundMessageId } from "@/lib/email/inbound-id";
 import { getUnsubscribeUrlFromRawR2Key } from "@/lib/email/unsubscribe";
 import { resolveThreadId } from "@/lib/email/threading";
+import { normalizeMessageId } from "@/lib/email/thread-lookup";
 import type { SessionUser } from "@/lib/auth/types";
 import { analyzeSpam } from "@/lib/spam/engine";
 import { getReputationKeys } from "@/lib/spam/analyzers/reputation";
@@ -132,12 +133,23 @@ export async function processInboundMessage(
 		address: fromAddr,
 		source: "inbound",
 	});
-	const threadId = await resolveThreadId(db, {
-		mailboxId: decision.mailbox.mailboxId,
-		messageId: parsed.messageId,
-		inReplyTo: parsed.inReplyTo,
-		references: parsed.references,
-	});
+	let threadId: string;
+	try {
+		threadId = await resolveThreadId(db, {
+			mailboxId: decision.mailbox.mailboxId,
+			messageId: parsed.messageId,
+			inReplyTo: parsed.inReplyTo,
+			references: parsed.references,
+		});
+	} catch (error) {
+		console.error("Inbound thread lookup failed", {
+			rawR2Key: payload.rawR2Key,
+			recipient: payload.to,
+			referenceCount: parsed.references.length,
+			error,
+		});
+		threadId = normalizeMessageId(parsed.messageId) ?? newId("thr");
+	}
 
 	try {
 		const inserted = await db.insert(messages).values({

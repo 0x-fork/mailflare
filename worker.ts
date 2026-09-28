@@ -110,7 +110,12 @@ export default {
 				}
 				msg.ack();
 			} catch (err) {
-				console.error("Queue processing failed", err);
+				console.error("Queue processing failed", {
+					rawR2Key: isInboundQueueMessage(msg.body) ? msg.body.rawR2Key : undefined,
+					recipient: isInboundQueueMessage(msg.body) ? msg.body.to : undefined,
+					attempts: msg.attempts,
+					error: err,
+				});
 				msg.retry({ delaySeconds: 10 });
 			}
 		}
