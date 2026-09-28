@@ -11,6 +11,7 @@ import { processWebhookRetry, type WebhookRetryMessage } from "./src/lib/email/w
 import { resolveIncomingMail, forwardMessage } from "./src/lib/email/incoming";
 import { getUserFromSession } from "./src/lib/auth/session";
 import { getSessionTokenFromRequest } from "./src/lib/realtime/utils";
+import { hasValidSessionMutationOrigin } from "./src/lib/auth/origin";
 import {
 	getAccountForwardingDestination,
 	MAILFLARE_FORWARDED_HEADER,
@@ -26,6 +27,9 @@ export default {
 		if (url.pathname === "/api/realtime") {
 			if (request.headers.get("Upgrade")?.toLowerCase() !== "websocket") {
 				return new Response("Expected WebSocket upgrade", { status: 426 });
+			}
+			if (!hasValidSessionMutationOrigin(request)) {
+				return new Response("Invalid origin", { status: 403 });
 			}
 
 			const user = await getUserFromSession(env, getSessionTokenFromRequest(request));

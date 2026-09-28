@@ -10,6 +10,8 @@ import { getEmailAddress } from "@/lib/email/address";
 import { sendMailboxAutoReply } from "@/lib/email/auto-reply";
 import { getMailboxAccessLevel } from "@/lib/mailboxes/access";
 import { listMessageAttachments, storeMessageAttachments } from "@/lib/email/attachments";
+import { selectInboundAttachments } from "@/lib/email/inbound-attachments";
+import { inboundMessageId } from "@/lib/email/inbound-id";
 import { getUnsubscribeUrlFromRawR2Key } from "@/lib/email/unsubscribe";
 import { resolveThreadId } from "@/lib/email/threading";
 import type { SessionUser } from "@/lib/auth/types";
@@ -76,7 +78,7 @@ export async function processInboundMessage(
 
 	const buffer = await raw.arrayBuffer();
 	const parsed = await parseRawMime(buffer);
-	const messageId = newId("msg");
+	const messageId = await inboundMessageId(payload.rawR2Key);
 	const snippet = buildSnippet(parsed.text, parsed.html);
 	const deliveredAddress = getEmailAddress(payload.to) || `${decision.mailbox.localPart}@${decision.mailbox.hostname}`;
 	// Keep the whole To header so reply-all can address everyone; rules and
@@ -132,7 +134,7 @@ export async function processInboundMessage(
 	});
 
 	try {
-		await db.insert(messages).values({
+		const inserted = await db.insert(messages).values({
 			id: messageId,
 			userId: decision.mailbox.userId,
 			mailboxId: decision.mailbox.mailboxId,
@@ -156,9 +158,14 @@ export async function processInboundMessage(
 			spamSignals: spamAnalysis ? JSON.stringify(spamAnalysis.signals) : null,
 			spamAnalyzedAt: spamAnalysis ? new Date() : null,
 			spamAnalysisError,
-		});
+		}).onConflictDoNothing().returning({ id: messages.id });
+		if (!inserted.length) return;
 
-		await storeMessageAttachments(env, messageId, parsed.attachments, { validate: false });
+		const attachments = selectInboundAttachments(parsed.attachments);
+		if (attachments.length !== parsed.attachments.length) {
+			console.warn(`Inbound attachment limits omitted ${parsed.attachments.length - attachments.length} files for ${messageId}`);
+		}
+		await storeMessageAttachments(env, messageId, attachments);
 		if (spamAnalysis) {
 			try {
 				await recordReputationObservation(env, decision.mailbox.mailboxId, getReputationKeys(parsed, spamAnalysis.fingerprint));
