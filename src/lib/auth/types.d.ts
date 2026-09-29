@@ -13,6 +13,7 @@ export type SessionUser = {
 	canManageMailboxes: boolean;
 	keyboardShortcutsEnabled: boolean;
 	spamProtectionEnabled: boolean;
+	showFullRecipientAddresses: boolean;
 	createdByUserId: string | null;
 	createdAt: Date;
 };
