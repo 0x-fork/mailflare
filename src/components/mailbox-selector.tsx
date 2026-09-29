@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { CalendarDays, Check, LogOut, Settings, ShieldCheck, UserRound, UsersRound } from "lucide-react";
+import { CalendarDays, Check, Inbox, LogOut, Settings, ShieldCheck, UserRound, UsersRound } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useSelectedMailbox } from "@/components/mailbox-provider";
 import { ProgressiveAvatarImage } from "@/components/progressive-avatar-image";
@@ -265,9 +265,17 @@ export function MailboxSelector({ initialUser }: MailboxSelectorProps = {}) {
 							<Check className="h-5 w-5 shrink-0 text-blue-600" />
 						</div>
 						<Link
-							href="/calendar"
+							href="/inbox"
 							onClick={() => setOpen(false)}
 							className="mt-4 flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium text-neutral-700 hover:bg-[#f2f6fc]"
+						>
+							<Inbox className="h-5 w-5 text-neutral-600" />
+							Inbox
+						</Link>
+						<Link
+							href="/calendar"
+							onClick={() => setOpen(false)}
+							className="mt-1 flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium text-neutral-700 hover:bg-[#f2f6fc]"
 						>
 							<CalendarDays className="h-5 w-5 text-neutral-600" />
 							Calendar
@@ -298,6 +306,7 @@ export function MailboxSelector({ initialUser }: MailboxSelectorProps = {}) {
 										onSelect={() => {
 											setSelectedMailbox(mailbox);
 											setOpen(false);
+											router.push("/inbox");
 										}}
 									/>
 								);

@@ -80,7 +80,7 @@ export function NavItem({ link }: { link: NavLink }) {
         size={21}
           style={{ color: link.iconColor }}
         />
-        {!minimal && <span className={cn("flex-1", typeof link.count === "number" && link.count > 0 && "font-bold")}>{link.label}</span>}
+        {!minimal && <span className={cn("flex-1", typeof link.count === "number" && link.count > 0 && "font-semibold")}>{link.label}</span>}
         {!minimal && typeof link.count === "number" && link.count > 0 && (
           <span className="ml-auto mr-3 rounded-full px-2 py-0.5 text-sm font-semibold text-neutral-700">
             {link.count > 99 ? "99+" : link.count}
@@ -142,7 +142,7 @@ export function NavItem({ link }: { link: NavLink }) {
           style={{ color: link.iconColor }}
           size={18}
         />
-        {!minimal && <span className={cn("flex-1", typeof link.count === "number" && link.count > 0 && "font-bold")}>{link.label}</span>}
+        {!minimal && <span className={cn("flex-1", typeof link.count === "number" && link.count > 0 && "font-semibold")}>{link.label}</span>}
         {!minimal && typeof link.count === "number" && link.count > 0 && (
           <span className="ml-auto mr-3 rounded-full px-2 py-0.5 text-sm font-semibold text-neutral-700">
             {link.count > 99 ? "99+" : link.count}
