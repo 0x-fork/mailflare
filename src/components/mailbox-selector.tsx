@@ -25,6 +25,7 @@ import type {
 	AccountAvatarProps,
 	MailboxAccountRowProps,
 	MailboxSelectorUser,
+	MailboxSelectorProps,
 } from "./mailbox-selector-types";
 import {
 	getAccountInitial,
@@ -110,13 +111,13 @@ function MailboxAccountRow({ mailbox, unread, avatarUrl, onSelect }: MailboxAcco
 	);
 }
 
-export function MailboxSelector() {
+export function MailboxSelector({ initialUser }: MailboxSelectorProps = {}) {
 	const { selectedMailbox, setSelectedMailbox, mailboxes, isLoading } = useSelectedMailbox();
 	const pathname = usePathname();
 	const router = useRouter();
 	const [open, setOpen] = useState(false);
-	const [user, setUser] = useState<MailboxSelectorUser | null>(null);
-	const [hasAvatar, setHasAvatar] = useState(false);
+	const [user, setUser] = useState<MailboxSelectorUser | null>(initialUser ?? null);
+	const [hasAvatar, setHasAvatar] = useState(!!initialUser?.hasAvatar);
 	const [avatarUrl, setAvatarUrl] = useState("/api/profile/avatar");
 	const [mailboxAvatarUrls, setMailboxAvatarUrls] = useState<Record<string, string>>({});
 	const ref = useRef<HTMLDivElement>(null);
@@ -187,7 +188,7 @@ export function MailboxSelector() {
 		return () => window.removeEventListener(MAILBOX_AVATAR_CHANGED_EVENT, onMailboxAvatarChanged);
 	}, []);
 
-	if (isLoading) {
+	if (isLoading && !initialUser) {
 		return <Skeleton className="h-10 w-10 rounded-full" />;
 	}
 
