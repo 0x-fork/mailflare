@@ -11,6 +11,7 @@ import { buildSnippet } from "@/lib/email/parse";
 import { getMailboxAccessLevel, listAccessibleMailboxes } from "@/lib/mailboxes/access";
 import { tracksAccountIdentity } from "@/lib/profile/identity-utils";
 import { buildSearchConditions } from "@/lib/search/conditions";
+import { getRequestTimeZone } from "@/lib/time/utils";
 
 export async function GET(request: Request) {
 	const env = getEnv();
@@ -80,7 +81,7 @@ export async function GET(request: Request) {
 	if (query || title) {
 		// Operators (from:, has:attachment, before:) and free text go through the
 		// full-text index; `title` is the legacy subject filter and is folded in.
-		conditions.push(...buildSearchConditions(title ? `${query ?? ""} subject:"${title}"` : query ?? ""));
+		conditions.push(...buildSearchConditions(title ? `${query ?? ""} subject:"${title}"` : query ?? "", getRequestTimeZone(request, user.timeZone)));
 	}
 	const where = and(...conditions);
 	// Messages that were never threaded (older rows, drafts) stand alone.

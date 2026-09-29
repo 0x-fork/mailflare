@@ -1,7 +1,8 @@
-import type { CalendarEvent, EventGroup, EventResizeEdge } from "./types";
+import type { CalendarEvent, CalendarEventTimes, EventGroup, EventResizeEdge } from "./types";
 import type { FolderColor } from "@/lib/folders/types";
 import type { CalendarRepeat } from "@/lib/calendar/types";
 import { parseCalendarRepeatDays, parseExcludedOccurrences } from "@/lib/calendar/recurrence";
+import { dateFromZonedFields, formatUserDate, formatUserDateTimeLocal, getUserTimeZone, parseUserDateTimeLocal, zonedDateFields } from "@/lib/time/utils";
 
 export const CALENDAR_START_HOUR = 0;
 export const CALENDAR_END_HOUR = 24;
@@ -35,13 +36,34 @@ export const PAST_EVENT_COLOR_CLASSES: Record<FolderColor, string> = {
   "#0d9488": "bg-teal-200 text-teal-900",
 };
 
-function recurringStart(first: Date, repeat: CalendarRepeat, index: number, anchorDay = first.getDate()): Date {
+function recurringStart(first: Date, repeat: CalendarRepeat, index: number, timeZone: string, anchorDay?: number | null): Date {
+  if (index === 0) return new Date(first);
+  const fields = zonedDateFields(first, timeZone);
   if (repeat === "monthly") {
-    const monthStart = new Date(first.getFullYear(), first.getMonth() + index, 1);
-    const lastDay = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0).getDate();
-    return new Date(monthStart.getFullYear(), monthStart.getMonth(), Math.min(anchorDay, lastDay), first.getHours(), first.getMinutes(), first.getSeconds(), first.getMilliseconds());
+    const day = anchorDay ?? fields.getUTCDate();
+    fields.setUTCDate(1);
+    fields.setUTCMonth(fields.getUTCMonth() + index);
+    const lastDay = new Date(Date.UTC(fields.getUTCFullYear(), fields.getUTCMonth() + 1, 0)).getUTCDate();
+    fields.setUTCDate(Math.min(day, lastDay));
+  } else {
+    fields.setUTCDate(fields.getUTCDate() + index * (repeat === "weekly" ? 7 : 1));
   }
-  return new Date(first.getFullYear(), first.getMonth(), first.getDate() + index * (repeat === "weekly" ? 7 : 1), first.getHours(), first.getMinutes(), first.getSeconds(), first.getMilliseconds());
+  return dateFromZonedFields(fields, timeZone);
+}
+
+export function calendarTimeZone(_event?: CalendarEvent | null): string {
+  return getUserTimeZone();
+}
+
+export function calendarAnchorDay(event: CalendarEvent | null, value: Date): number {
+  return zonedDateFields(value, calendarTimeZone(event)).getUTCDate();
+}
+
+function recurrenceStartIndex(first: Date, repeat: CalendarRepeat, after: Date, timeZone: string): number {
+  const start = zonedDateFields(first, timeZone);
+  const end = zonedDateFields(after, timeZone);
+  if (repeat === "monthly") return Math.max(0, (end.getUTCFullYear() - start.getUTCFullYear()) * 12 + end.getUTCMonth() - start.getUTCMonth() - 1);
+  return Math.max(0, Math.floor((end.getTime() - start.getTime()) / (86_400_000 * (repeat === "weekly" ? 7 : 1))) - 1);
 }
 
 export function expandCalendarEvents(events: CalendarEvent[], rangeStart: Date, rangeEnd: Date): CalendarEvent[] {
@@ -56,10 +78,12 @@ export function expandCalendarEvents(events: CalendarEvent[], rangeStart: Date, 
     const until = event.repeatUntil ? new Date(event.repeatUntil).getTime() : Infinity;
     const repeatDays = parseCalendarRepeatDays(event.repeatDays);
     const excluded = new Set(parseExcludedOccurrences(event.excludedOccurrences));
-    for (let index = 0; index < 20_000; index++) {
-      const startsAt = recurringStart(first, event.repeat, index, event.repeatAnchorDay ?? first.getDate());
+    const timeZone = calendarTimeZone(event);
+    const firstIndex = recurrenceStartIndex(first, event.repeat, new Date(rangeStart.getTime() - duration), timeZone);
+    for (let index = firstIndex; index < firstIndex + 20_000; index++) {
+      const startsAt = recurringStart(first, event.repeat, index, timeZone, event.repeatAnchorDay);
       if (startsAt >= rangeEnd || startsAt.getTime() >= until) break;
-      if (excluded.has(startsAt.getTime()) || (event.repeat === "weekdays" && !repeatDays.includes(startsAt.getDay()))) continue;
+      if (excluded.has(startsAt.getTime()) || (event.repeat === "weekdays" && !repeatDays.includes(zonedDateFields(startsAt, timeZone).getUTCDay()))) continue;
       const endsAt = new Date(startsAt.getTime() + duration);
       if (endsAt > rangeStart) occurrences.push({ ...event, id: `${event.id}@${startsAt.getTime()}`, seriesStartsAt: event.startsAt, startsAt: startsAt.toISOString(), endsAt: endsAt.toISOString() });
     }
@@ -72,49 +96,89 @@ export function nextCalendarOccurrence(event: CalendarEvent, after: Date): Date 
   const until = event.repeatUntil ? new Date(event.repeatUntil).getTime() : Infinity;
   const repeatDays = parseCalendarRepeatDays(event.repeatDays);
   const excluded = new Set(parseExcludedOccurrences(event.excludedOccurrences));
-  for (let index = 0; index < 20_000; index++) {
-    const startsAt = recurringStart(first, event.repeat, index, event.repeatAnchorDay ?? first.getDate());
+  const timeZone = calendarTimeZone(event);
+  const firstIndex = recurrenceStartIndex(first, event.repeat, after, timeZone);
+  for (let index = firstIndex; index < firstIndex + 20_000; index++) {
+    const startsAt = recurringStart(first, event.repeat, index, timeZone, event.repeatAnchorDay);
     if (startsAt.getTime() >= until) return null;
-    if (startsAt < after || excluded.has(startsAt.getTime()) || (event.repeat === "weekdays" && !repeatDays.includes(startsAt.getDay()))) continue;
+    if (startsAt < after || excluded.has(startsAt.getTime()) || (event.repeat === "weekdays" && !repeatDays.includes(zonedDateFields(startsAt, timeZone).getUTCDay()))) continue;
     return startsAt;
   }
   return null;
 }
 
+export function rescheduleCalendarOccurrence(event: CalendarEvent, startsAt: Date, endsAt: Date, effectiveFrom: Date): CalendarEventTimes | null {
+  const timeZone = calendarTimeZone(event);
+  const shift = zonedDateFields(startsAt, timeZone).getTime() - zonedDateFields(new Date(event.startsAt), timeZone).getTime();
+  const threshold = dateFromZonedFields(new Date(zonedDateFields(effectiveFrom, timeZone).getTime() - shift), timeZone);
+  let next = nextCalendarOccurrence(event, threshold);
+  while (next) {
+    const savedStart = shift === 0 ? next : dateFromZonedFields(new Date(zonedDateFields(next, timeZone).getTime() + shift), timeZone);
+    if (savedStart >= effectiveFrom) return { startsAt: savedStart, endsAt: new Date(savedStart.getTime() + endsAt.getTime() - startsAt.getTime()) };
+    next = nextCalendarOccurrence(event, new Date(next.getTime() + 1));
+  }
+  return null;
+}
+
 export function startOfDay(value: Date): Date {
-  return new Date(value.getFullYear(), value.getMonth(), value.getDate());
+  const fields = zonedDateFields(value, getUserTimeZone());
+  fields.setUTCHours(0, 0, 0, 0);
+  return dateFromZonedFields(fields, getUserTimeZone());
 }
 
 export function addDays(value: Date, days: number): Date {
-  return new Date(value.getFullYear(), value.getMonth(), value.getDate() + days);
+  const fields = zonedDateFields(value, getUserTimeZone());
+  fields.setUTCDate(fields.getUTCDate() + days);
+  fields.setUTCHours(0, 0, 0, 0);
+  return dateFromZonedFields(fields, getUserTimeZone());
+}
+
+export function addMonths(value: Date, months: number): Date {
+  const fields = zonedDateFields(value, getUserTimeZone());
+  fields.setUTCDate(1);
+  fields.setUTCMonth(fields.getUTCMonth() + months);
+  fields.setUTCHours(0, 0, 0, 0);
+  return dateFromZonedFields(fields, getUserTimeZone());
+}
+
+export function startOfMonth(value: Date): Date {
+  return addMonths(value, 0);
+}
+
+export function defaultCalendarStart(day: Date): Date {
+  const hour = Math.min(Math.max(zonedDateFields(new Date(), getUserTimeZone()).getUTCHours() + 1, CALENDAR_START_HOUR), CALENDAR_END_HOUR - 1);
+  const fields = zonedDateFields(day, getUserTimeZone());
+  fields.setUTCHours(hour, 0, 0, 0);
+  return dateFromZonedFields(fields, getUserTimeZone());
 }
 
 export function monthGridDates(month: Date): Date[] {
-  const first = new Date(month.getFullYear(), month.getMonth(), 1);
-  const gridStart = addDays(first, -first.getDay());
+  const first = startOfMonth(month);
+  const gridStart = addDays(first, -zonedDateFields(first, getUserTimeZone()).getUTCDay());
   return Array.from({ length: 42 }, (_, index) => addDays(gridStart, index));
 }
 
 export function startOfWeek(value: Date): Date {
-  return addDays(startOfDay(value), -value.getDay());
+  return addDays(startOfDay(value), -zonedDateFields(value, getUserTimeZone()).getUTCDay());
 }
 
 export function dateKey(value: Date): string {
-  return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}-${String(value.getDate()).padStart(2, "0")}`;
+  return zonedDateFields(value, getUserTimeZone()).toISOString().slice(0, 10);
 }
 
 export function formatLocalDateTime(value: Date): string {
-  return `${dateKey(value)}T${String(value.getHours()).padStart(2, "0")}:${String(value.getMinutes()).padStart(2, "0")}`;
+  return formatUserDateTimeLocal(value);
 }
 
 export function eventEndAfterMinutes(start: string, minutes: number): string {
-  const startDate = new Date(start);
-  if (Number.isNaN(startDate.getTime())) return "";
+  const startDate = parseUserDateTimeLocal(start);
+  if (!startDate) return "";
   return formatLocalDateTime(new Date(startDate.getTime() + minutes * 60_000));
 }
 
 export function currentTimePosition(value: Date): number {
-  return ((value.getHours() - CALENDAR_START_HOUR) * 60 + value.getMinutes() + value.getSeconds() / 60) * CALENDAR_HOUR_HEIGHT / 60;
+  const fields = zonedDateFields(value, getUserTimeZone());
+  return ((fields.getUTCHours() - CALENDAR_START_HOUR) * 60 + fields.getUTCMinutes() + fields.getUTCSeconds() / 60) * CALENDAR_HOUR_HEIGHT / 60;
 }
 
 export function formatHour(hour: number): string {
@@ -122,7 +186,8 @@ export function formatHour(hour: number): string {
 }
 
 export function formatEventTime(value: Date): string {
-  return value.toLocaleTimeString(undefined, { hour: "numeric", minute: value.getMinutes() ? "2-digit" : undefined });
+  const minutes = zonedDateFields(value, getUserTimeZone()).getUTCMinutes();
+  return formatUserDate(value, { hour: "numeric", minute: minutes ? "2-digit" : undefined });
 }
 
 export function formatEventRange(event: CalendarEvent): string {
@@ -144,7 +209,7 @@ export function groupUpcomingEvents(events: CalendarEvent[], today: Date): Event
       ? "Today"
       : key === dateKey(tomorrowStart)
         ? "Tomorrow"
-        : eventDate.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+        : formatUserDate(eventDate, { month: "short", day: "numeric", year: "numeric" });
     const lastGroup = groups[groups.length - 1];
     if (lastGroup?.key === key) lastGroup.events.push(event);
     else groups.push({ key, label, events: [event] });
@@ -168,29 +233,35 @@ export function takeUpcomingGroups(groups: EventGroup[], count: number): EventGr
 export function eventPosition(event: CalendarEvent, day: Date): { top: number; height: number } | null {
   const start = new Date(event.startsAt);
   const end = new Date(event.endsAt);
-  const dayStart = startOfDay(day).getTime();
-  const startMinutes = Math.max(CALENDAR_START_HOUR * 60, (start.getTime() - dayStart) / 60_000);
-  const endMinutes = Math.min(CALENDAR_END_HOUR * 60, (end.getTime() - dayStart) / 60_000);
-  if (endMinutes <= startMinutes) return null;
+  const dayStart = startOfDay(day);
+  const dayEnd = addDays(dayStart, 1);
+  if (start >= dayEnd || end <= dayStart) return null;
+  const startFields = zonedDateFields(start, getUserTimeZone());
+  const endFields = zonedDateFields(end, getUserTimeZone());
+  const startMinutes = start <= dayStart ? 0 : startFields.getUTCHours() * 60 + startFields.getUTCMinutes() + startFields.getUTCSeconds() / 60;
+  const endMinutes = end >= dayEnd ? 24 * 60 : endFields.getUTCHours() * 60 + endFields.getUTCMinutes() + endFields.getUTCSeconds() / 60;
+  // A repeated hour can put the end above the start on this wall-clock grid.
+  const heightMinutes = endMinutes > startMinutes ? endMinutes - startMinutes : 15;
   return {
     top: (startMinutes - CALENDAR_START_HOUR * 60) * CALENDAR_HOUR_HEIGHT / 60,
-    height: (endMinutes - startMinutes) * CALENDAR_HOUR_HEIGHT / 60,
+    height: heightMinutes * CALENDAR_HOUR_HEIGHT / 60,
   };
 }
 
 export function dropStartForPosition(day: Date, pixelsFromTop: number): Date {
   const minutes = Math.max(0, Math.min(24 * 60 - 15, Math.round(pixelsFromTop * 60 / CALENDAR_HOUR_HEIGHT / 15) * 15));
-  const start = startOfDay(day);
-  start.setMinutes(minutes);
-  return start;
+  const fields = zonedDateFields(startOfDay(day), getUserTimeZone());
+  fields.setUTCMinutes(minutes);
+  return dateFromZonedFields(fields, getUserTimeZone());
 }
 
 export function resizeEventTimes(event: CalendarEvent, day: Date, edge: EventResizeEdge, pixelsFromTop: number): { startsAt: Date; endsAt: Date } {
   const minimum = edge === "start" ? 0 : 15;
   const maximum = edge === "start" ? 24 * 60 - 15 : 24 * 60;
   const minutes = Math.max(minimum, Math.min(maximum, Math.round(pixelsFromTop * 60 / CALENDAR_HOUR_HEIGHT / 15) * 15));
-  const boundary = startOfDay(day);
-  boundary.setMinutes(minutes);
+  const fields = zonedDateFields(startOfDay(day), getUserTimeZone());
+  fields.setUTCMinutes(minutes);
+  const boundary = dateFromZonedFields(fields, getUserTimeZone());
   const startsAt = new Date(event.startsAt);
   const endsAt = new Date(event.endsAt);
   if (edge === "start") {

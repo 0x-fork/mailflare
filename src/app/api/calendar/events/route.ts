@@ -10,6 +10,7 @@ import { createCalendarInvitation } from "@/lib/calendar/utils";
 import { normalizeCalendarColor } from "@/lib/calendar/colors";
 import { DEFAULT_REPEAT_DAYS, normalizeCalendarRepeat, normalizeCalendarRepeatDays } from "@/lib/calendar/recurrence";
 import type { CalendarEventInput } from "./types";
+import { getRequestTimeZone, normalizeTimeZone } from "@/lib/time/utils";
 
 export async function GET(request: Request) {
 	const env = getEnv();
@@ -33,10 +34,11 @@ export async function POST(request: Request) {
 	if (repeat === "weekdays" && repeatDays.length === 0) return NextResponse.json({ error: "Choose at least one weekday" }, { status: 400 });
 	const attendees = (input.attendees ?? []).map((email) => email.trim()).filter((email) => /^\S+@\S+\.\S+$/.test(email));
 	const event = { id: newId("evt"), userId: user.id, mailboxId: input.mailboxId ?? null, title: input.title.trim(), description: input.description?.trim() ?? "", location: input.location?.trim() ?? "", attendees: JSON.stringify(attendees), color: normalizeCalendarColor(input.color), repeat, repeatDays: JSON.stringify(repeatDays), repeatAnchorDay: repeat === "monthly" && Number.isInteger(input.repeatAnchorDay) && input.repeatAnchorDay! >= 1 && input.repeatAnchorDay! <= 31 ? input.repeatAnchorDay : null, startsAt, endsAt };
-	await getDb(env).insert(calendarEvents).values(event);
+	const savedEvent = { ...event, timeZone: input.timeZone ? normalizeTimeZone(input.timeZone) : getRequestTimeZone(request, user.timeZone) };
+	await getDb(env).insert(calendarEvents).values(savedEvent);
 	if (attendees.length && input.mailboxId) {
 		const calendarFile = createCalendarInvitation({ ...event, uid: event.id });
 		await Promise.all(attendees.map((to) => sendEmail(env, { userId: user.id, mailboxId: input.mailboxId!, from: input.from ?? "", to, subject: `Invitation: ${event.title}`, text: event.description || `You are invited to ${event.title}.`, attachments: [{ filename: "invite.ics", type: "text/calendar; charset=utf-8", content: calendarFile }] })));
 	}
-	return NextResponse.json({ event });
+	return NextResponse.json({ event: savedEvent });
 }

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import type { MessageSnoozeDialogProps } from "./types";
+import { getUserTimeZone } from "@/lib/time/utils";
 
 export function MessageSnoozeDialog({ messageId, open, onOpenChange }: MessageSnoozeDialogProps) {
 	const [snoozedUntil, setSnoozedUntil] = useState(() => getSnoozePresets()[0].value);
@@ -42,7 +43,7 @@ export function MessageSnoozeDialog({ messageId, open, onOpenChange }: MessageSn
 						))}
 					</div>
 					<div className="space-y-2">
-						<label htmlFor={`header-snooze-until-${messageId}`} className="text-sm font-medium text-neutral-700">Select date and time</label>
+						<label htmlFor={`header-snooze-until-${messageId}`} className="text-sm font-medium text-neutral-700">Select date and time ({getUserTimeZone()})</label>
 						<Input id={`header-snooze-until-${messageId}`} type="datetime-local" value={snoozedUntil} onChange={(event) => setSnoozedUntil(event.target.value)} />
 					</div>
 					{error && <p className="text-sm text-red-600">{error}</p>}

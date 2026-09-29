@@ -11,6 +11,7 @@ import type { CalendarEventRouteParams } from "./types";
 import { normalizeCalendarColor } from "@/lib/calendar/colors";
 import { DEFAULT_REPEAT_DAYS, normalizeCalendarRepeat, normalizeCalendarRepeatDays, parseCalendarOccurrenceId, parseCalendarRepeatDays, parseExcludedOccurrences } from "@/lib/calendar/recurrence";
 import { newId } from "@/lib/ids";
+import { getRequestTimeZone, normalizeTimeZone } from "@/lib/time/utils";
 
 export async function PATCH(request: Request, { params }: CalendarEventRouteParams) {
 	const env = getEnv();
@@ -26,6 +27,7 @@ export async function PATCH(request: Request, { params }: CalendarEventRoutePara
 	const db = getDb(env);
 	const [existing] = await db.select().from(calendarEvents).where(and(eq(calendarEvents.id, occurrence?.seriesId ?? eventId), eq(calendarEvents.userId, user.id))).limit(1);
 	if (!existing) return NextResponse.json({ error: "Event not found" }, { status: 404 });
+	const timeZone = input.timeZone ? normalizeTimeZone(input.timeZone) : existing.timeZone ?? getRequestTimeZone(request, user.timeZone);
 	if (occurrence && (existing.repeat === "none" || occurrence.startsAt < existing.startsAt || (existing.repeatUntil && occurrence.startsAt >= existing.repeatUntil))) return NextResponse.json({ error: "Occurrence not found" }, { status: 404 });
 	if (existing.repeat !== "none" && effectiveFrom && existing.repeatUntil && effectiveFrom >= existing.repeatUntil) return NextResponse.json({ error: "No future occurrences remain" }, { status: 404 });
 	const attendees = (input.attendees ?? []).map((email) => email.trim()).filter((email) => /^\S+@\S+\.\S+$/.test(email));
@@ -44,14 +46,14 @@ export async function PATCH(request: Request, { params }: CalendarEventRoutePara
 	const repeatDays = repeat === "weekdays" ? normalizeCalendarRepeatDays(input.repeatDays ?? (existing.repeat === "weekdays" ? parseCalendarRepeatDays(existing.repeatDays) : DEFAULT_REPEAT_DAYS)) : [];
 	if (repeat === "weekdays" && repeatDays.length === 0) return NextResponse.json({ error: "Choose at least one weekday" }, { status: 400 });
 	const repeatAnchorDay = repeat === "monthly" && Number.isInteger(input.repeatAnchorDay) && input.repeatAnchorDay! >= 1 && input.repeatAnchorDay! <= 31 ? input.repeatAnchorDay : repeat === "monthly" ? existing.repeatAnchorDay : null;
-	const event = { ...existing, title: input.title.trim(), description: input.description?.trim() ?? "", location: input.location?.trim() ?? "", attendees: JSON.stringify(attendees), color: normalizeCalendarColor(input.color ?? existing.color), repeat, repeatDays: JSON.stringify(repeatDays), repeatAnchorDay, repeatUntil: repeat === "none" ? null : existing.repeatUntil, startsAt, endsAt };
+	const event = { ...existing, timeZone, title: input.title.trim(), description: input.description?.trim() ?? "", location: input.location?.trim() ?? "", attendees: JSON.stringify(attendees), color: normalizeCalendarColor(input.color ?? existing.color), repeat, repeatDays: JSON.stringify(repeatDays), repeatAnchorDay, repeatUntil: repeat === "none" ? null : existing.repeatUntil, startsAt, endsAt };
 	const splitAt = existing.repeat !== "none" ? effectiveFrom : null;
 	if (splitAt && splitAt > existing.startsAt) {
 		const now = new Date();
 		await db.insert(calendarEvents).values({ ...event, id: newId("evt"), createdAt: now, updatedAt: now });
 		await db.update(calendarEvents).set({ repeatUntil: splitAt, updatedAt: now }).where(eq(calendarEvents.id, existing.id));
 	} else {
-		await db.update(calendarEvents).set({ title: event.title, description: event.description, location: event.location, attendees: event.attendees, color: event.color, repeat: event.repeat, repeatDays: event.repeatDays, repeatAnchorDay: event.repeatAnchorDay, repeatUntil: event.repeatUntil, startsAt, endsAt, updatedAt: new Date() }).where(eq(calendarEvents.id, existing.id));
+		await db.update(calendarEvents).set({ title: event.title, description: event.description, location: event.location, attendees: event.attendees, color: event.color, repeat: event.repeat, repeatDays: event.repeatDays, repeatAnchorDay: event.repeatAnchorDay, repeatUntil: event.repeatUntil, timeZone, startsAt, endsAt, updatedAt: new Date() }).where(eq(calendarEvents.id, existing.id));
 	}
 	if (attendees.length && existing.mailboxId && input.from) { const file = createCalendarInvitation({ ...event, uid: existing.id }); await Promise.all(attendees.map((to) => sendEmail(env, { userId: user.id, mailboxId: existing.mailboxId!, from: input.from!, to, subject: `Updated invitation: ${event.title}`, text: event.description || `This event has been updated: ${event.title}.`, attachments: [{ filename: "invite.ics", type: "text/calendar; charset=utf-8", content: file }] }))); }
 	return NextResponse.json({ ok: true });

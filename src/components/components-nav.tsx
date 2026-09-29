@@ -77,7 +77,7 @@ export function NavItem({ link }: { link: NavLink }) {
         {...dropProps}
       >
         <Icon
-        size={21}
+        size={19}
           style={{ color: link.iconColor }}
         />
         {!minimal && <span className={cn("flex-1", typeof link.count === "number" && link.count > 0 && "font-semibold")}>{link.label}</span>}
@@ -140,7 +140,7 @@ export function NavItem({ link }: { link: NavLink }) {
         <Icon
           // className={minimal ? "h-4 w-4" : "h-5 w-5"}
           style={{ color: link.iconColor }}
-          size={18}
+          size={16}
         />
         {!minimal && <span className={cn("flex-1", typeof link.count === "number" && link.count > 0 && "font-semibold")}>{link.label}</span>}
         {!minimal && typeof link.count === "number" && link.count > 0 && (

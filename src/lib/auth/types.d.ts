@@ -7,6 +7,7 @@ export type SessionUser = {
 	forwardingEmail: string | null;
 	passwordHash: string;
 	name: string;
+	timeZone: string | null;
 	role: UserRole;
 	disabled: boolean;
 	canManageMailboxes: boolean;

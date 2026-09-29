@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import dayjs from "dayjs";
+import { formatUserDate } from "@/lib/time/utils";
 import { ChevronsUpDown, Paperclip } from "lucide-react";
 import { ContactAvatar } from "@/components/contacts/contact-avatar";
 import { QuotedEmailToggle } from "@/components/messages/quoted-email-toggle";
@@ -179,7 +179,7 @@ export function ConversationMessageCard({
 					</button>
 					<span className={clsx(!locallyRead ? "font-semibold" : "", "flex shrink-0 items-center gap-2 text-xs mr-2 mt-2")}>
 						{attachments.length > 0 && <Paperclip className="h-3.5 w-3.5" aria-label={`${attachments.length} attachments`} />}
-						{dayjs(message.createdAt).format("MMM DD, YYYY, hh:mmA")}
+						{formatUserDate(message.createdAt, { month: "short", day: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}
 					</span>
 					<ThreadMessageActions
 						message={message}

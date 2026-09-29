@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { authFetch } from "@/lib/auth/client";
 import type { AuthGuardProps } from "./auth-guard-types";
 import { LoadingTransition } from "@/components/loading-transition";
+import { saveUserTimeZonePreference } from "@/lib/time/client";
 
 export function AuthGuard({ children, mode = "protected", requireMailbox, requireRole }: AuthGuardProps) {
 	const pathname = usePathname();
@@ -34,7 +35,8 @@ export function AuthGuard({ children, mode = "protected", requireMailbox, requir
 					return;
 				}
 
-				const data = (await response.json()) as { hasMailboxes?: boolean; isSetup?: boolean; user?: { role?: string } };
+				const data = (await response.json()) as { hasMailboxes?: boolean; isSetup?: boolean; user?: { id?: string; role?: string; timeZone?: string | null } };
+				if (data.user?.id) saveUserTimeZonePreference(data.user.id, data.user.timeZone ?? null);
 				if (mode === "public") {
 					router.replace("/inbox");
 					return;
@@ -67,6 +69,14 @@ export function AuthGuard({ children, mode = "protected", requireMailbox, requir
 			cancelled = true;
 		};
 	}, [mode, pathname, requireMailbox, requireRole, router]);
+
+	useEffect(() => {
+		const refreshTimeZone = (event: StorageEvent) => {
+			if (event.key === "mailflare-user-time-zone") window.location.reload();
+		};
+		window.addEventListener("storage", refreshTimeZone);
+		return () => window.removeEventListener("storage", refreshTimeZone);
+	}, []);
 
 	if (mode === "public") return <>{children}</>;
 	return <LoadingTransition ready={authorized}>{children}</LoadingTransition>;
