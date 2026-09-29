@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { eq, desc, and, or, lt, count, isNull, isNotNull, inArray, lte, gt, notInArray, sql, sum, getTableColumns } from "drizzle-orm";
+import { eq, desc, and, or, lt, count, countDistinct, isNull, isNotNull, inArray, lte, gt, notInArray, sql, sum, getTableColumns } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
 import { getEnv } from "@/lib/cloudflare";
 import { getCurrentUser } from "@/lib/auth/cookies";
@@ -10,6 +10,7 @@ import { getFirstEmailAddressEntry, normalizeEmailAddress } from "@/lib/email/ad
 import { getMailboxAccessLevel, listAccessibleMailboxes } from "@/lib/mailboxes/access";
 import { tracksAccountIdentity } from "@/lib/profile/identity-utils";
 import { buildSearchConditions } from "@/lib/search/conditions";
+import { loadConversationPage } from "./conversation-page";
 
 export async function GET(request: Request) {
 	const env = getEnv();
@@ -85,10 +86,7 @@ export async function GET(request: Request) {
 	// Messages that were never threaded (older rows, drafts) stand alone.
 	const threadKey = sql<string>`coalesce(${messages.threadId}, ${messages.id})`;
 
-	// The list never renders bodies, and pulling text_body/html_body for 50
-	// rows is megabytes of scattered reads on a 13GB table — the dominant
-	// cost of this endpoint cold. Select every column except those two; the
-	// stored `snippet` column covers preview text.
+	// The list renders `snippet`. Bodies stay on the thread endpoint.
 	type ListMessage = Omit<typeof messages.$inferSelect, "textBody" | "htmlBody">;
 	type MessageTableColumns = ReturnType<typeof getTableColumns<typeof messages>>;
 	const messageListColumns = Object.fromEntries(
@@ -101,90 +99,40 @@ export async function GET(request: Request) {
 	// conversation row acts on the whole conversation within this folder.
 	const threadMessageIds = new Map<string, string[]>();
 	if (groupByThread) {
-		// Conversation view: one row per thread = its newest message.
-		// Grouping the entire mailbox per request is O(mailbox). Walk the
-		// covering index newest-first and stop once this page, plus one extra
-		// thread, is in hand. Cost follows the page, not the mailbox.
-		const distinctKeys: string[] = [];
-		const seenKeys = new Set<string>();
-		let scanned = 0;
-		const maxScan = Math.max(limit * 40, 2000);
-		let lastCreatedAt: Date | null = null;
-		let lastId: string | null = null;
-		// One thread past the page is enough to know Next should stay enabled.
-		const targetCount = limit + offset + 1;
-		let exhausted = false;
-		while (distinctKeys.length < targetCount && scanned < maxScan) {
-			const batchLimit = Math.min(250, maxScan - scanned);
-			const cursorRows = await db
-				.select({ id: messages.id, threadId: messages.threadId, createdAt: messages.createdAt })
-				.from(messages)
-				.where(
-					lastCreatedAt
-						? and(where, or(
-								lt(messages.createdAt, lastCreatedAt),
-								and(eq(messages.createdAt, lastCreatedAt), lt(messages.id, lastId as string)),
-							))
-						: where,
-				)
-				.orderBy(desc(messages.createdAt), desc(messages.id))
-				.limit(batchLimit);
-			scanned += cursorRows.length;
-			if (cursorRows.length === 0 || cursorRows.length < batchLimit) {
-				exhausted = true;
-				if (cursorRows.length === 0) break;
-			}
-			for (const row of cursorRows) {
-				const key = row.threadId ?? row.id;
-				if (!seenKeys.has(key)) {
-					seenKeys.add(key);
-					distinctKeys.push(key);
-				}
-			}
-			const tail = cursorRows[cursorRows.length - 1];
-			lastCreatedAt = tail.createdAt;
-			lastId = tail.id;
-			if (exhausted) break;
-		}
-		const pageKeys = distinctKeys.slice(offset, offset + limit);
-		if (pageKeys.length > 0) {
-			// Cheap pass: only id/thread/created to find each thread's newest row.
-			// Selecting full rows here would pull text_body+html_body for every
-			// message in the page's threads, which is megabytes per request.
-			const candidates = await db
-				.select({ id: messages.id, threadId: messages.threadId, createdAt: messages.createdAt })
-				.from(messages)
-				.where(and(where, inArray(sql<string>`coalesce(${messages.threadId}, ${messages.id})`, pageKeys)));
-			const newestByKey = new Map<string, { id: string; createdAt: Date }>();
-			for (const row of candidates) {
-				const key = row.threadId ?? row.id;
-				const current = newestByKey.get(key);
-				if (!current || row.createdAt > current.createdAt) {
-					newestByKey.set(key, { id: row.id, createdAt: row.createdAt });
-				}
-			}
-			const newestIds = pageKeys
-				.map((key) => newestByKey.get(key)?.id)
-				.filter((id): id is string => !!id);
-			rows = newestIds.length
-				? await db
-						.select(messageListColumns)
-						.from(messages)
-						.where(and(where, inArray(messages.id, newestIds)))
-				: [];
-			const rowById = new Map(rows.map((row) => [row.id, row]));
-			rows = newestIds.map((id) => rowById.get(id)).filter((row): row is ListMessage => !!row);
-		} else {
-			rows = [];
-		}
-		// The folder pager turns Next off when offset + page length >= total.
-		// A finished walk knows the real thread count. A walk that already saw
-		// threads past this page reports that count. A walk stopped by the scan
-		// cap, with nothing past the page, reports one past the page so Next
-		// stays on. This avoids count(distinct) over the whole mailbox.
-		if (exhausted) total = distinctKeys.length;
-		else if (distinctKeys.length > offset + rows.length) total = distinctKeys.length;
-		else total = offset + rows.length + 1;
+		// One row per thread: its newest matching message. The id is the first
+		// time that thread appears in created_at DESC, id DESC order, so the
+		// page does not group the mailbox or read bodies.
+		const page = await loadConversationPage({
+			offset,
+			limit,
+			countThreads: async () => {
+				const [totalRow] = await db.select({ total: countDistinct(threadKey) }).from(messages).where(where);
+				return totalRow?.total ?? 0;
+			},
+			fetchBatch: (cursor, batchLimit) =>
+				db
+					.select({ id: messages.id, threadId: messages.threadId, createdAt: messages.createdAt })
+					.from(messages)
+					.where(
+						cursor
+							? and(
+									where,
+									or(
+										lt(messages.createdAt, cursor.createdAt),
+										and(eq(messages.createdAt, cursor.createdAt), lt(messages.id, cursor.id)),
+									),
+								)
+							: where,
+					)
+					.orderBy(desc(messages.createdAt), desc(messages.id))
+					.limit(batchLimit),
+		});
+		total = page.total;
+		rows = page.ids.length
+			? await db.select(messageListColumns).from(messages).where(and(where, inArray(messages.id, page.ids)))
+			: [];
+		const rowById = new Map(rows.map((row) => [row.id, row]));
+		rows = page.ids.map((id) => rowById.get(id)).filter((row): row is ListMessage => !!row);
 		const keys = rows.map((row) => row.threadId ?? row.id);
 		if (keys.length > 0) {
 			const members = await db

@@ -94,18 +94,8 @@ export class SqliteDatabase {
 		this.db = new Database(filename) as Database.Database & { __statements?: Map<string, Database.Statement> };
 		(this.db as Database.Database & { __statements?: Map<string, Database.Statement> }).__statements = new Map();
 		this.db.pragma("journal_mode = WAL");
-		this.db.pragma("synchronous = NORMAL");
 		this.db.pragma("foreign_keys = ON");
 		this.db.pragma("busy_timeout = 5000");
-		this.db.pragma("temp_store = MEMORY");
-		// The DB (13GB+) dwarfs host RAM, so reads must ride the kernel page
-		// cache: mmap the whole file and keep only a small in-process cache.
-		this.db.pragma("cache_size = -65536");
-		this.db.pragma("mmap_size = 17179869184");
-		this.db.pragma("wal_autocheckpoint = 1000");
-		// Indexes live in drizzle/migrations/0047_add_message_list_indexes.sql.
-		// Creating them here runs before migrations on a fresh database and
-		// fails because `messages` does not exist yet.
 	}
 
 	prepare(sql: string) {
