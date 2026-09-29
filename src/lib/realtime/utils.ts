@@ -3,6 +3,7 @@ import { getDb } from "@/db";
 import { domains, mailboxAccess, mailboxes } from "@/db/schema";
 import { isTeamMailboxSharingEnabled } from "@/lib/mailboxes/access-utils";
 import type { NewMessageNotification } from "./types";
+import { sendPushNotifications } from "@/lib/push/server";
 
 export function getSessionTokenFromRequest(request: Request): string | undefined {
 	const cookie = request.headers.get("Cookie");
@@ -53,8 +54,8 @@ export async function notifyUsersOfNewMessage(
 	userIds: string[],
 	payload: NewMessageNotification,
 ): Promise<void> {
-	await Promise.allSettled(
-		userIds.map((userId) => {
+	await Promise.allSettled([
+		...userIds.map((userId) => {
 			const hub = env.REALTIME.getByName(userId);
 			return hub.fetch("https://mailflare-realtime/notify", {
 				method: "POST",
@@ -62,5 +63,6 @@ export async function notifyUsersOfNewMessage(
 				body: JSON.stringify(payload),
 			});
 		}),
-	);
+		sendPushNotifications(env, userIds, payload),
+	]);
 }

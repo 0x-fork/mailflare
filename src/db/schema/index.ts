@@ -476,6 +476,33 @@ export const sessions = sqliteTable("sessions", {
 		.$defaultFn(() => new Date()),
 });
 
+export const pushSubscriptions = sqliteTable(
+	"push_subscriptions",
+	{
+		id: text("id").primaryKey(),
+		userId: text("user_id")
+			.notNull()
+			.references(() => users.id, { onDelete: "cascade" }),
+		sessionId: text("session_id")
+			.notNull()
+			.references(() => sessions.id, { onDelete: "cascade" }),
+		endpoint: text("endpoint").notNull(),
+		p256dh: text("p256dh").notNull(),
+		auth: text("auth").notNull(),
+		createdAt: integer("created_at", { mode: "timestamp" })
+			.notNull()
+			.$defaultFn(() => new Date()),
+		updatedAt: integer("updated_at", { mode: "timestamp" })
+			.notNull()
+			.$defaultFn(() => new Date()),
+	},
+	(t) => [
+		uniqueIndex("push_subscriptions_endpoint_idx").on(t.endpoint),
+		index("push_subscriptions_user_idx").on(t.userId),
+		index("push_subscriptions_session_idx").on(t.sessionId),
+	],
+);
+
 /** Single-use links mailed to a user's recovery address. Only the hash is stored. */
 export const passwordResetTokens = sqliteTable(
 	"password_reset_tokens",
@@ -636,6 +663,7 @@ export const schema = {
 	webhooks,
 	webhookDeliveries,
 	sessions,
+	pushSubscriptions,
 	auditLogs,
 	backupSettings,
 	backups,

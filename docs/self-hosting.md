@@ -21,6 +21,21 @@ Behind a reverse proxy, set `APP_URL=https://mail.example.com` so links in
 password-reset mail and the JMAP session point at the public address, and
 forward WebSocket upgrades for `/api/realtime`.
 
+### PWA and push notifications
+
+Mailflare can be installed as a PWA and can deliver new-mail notifications
+after the browser is closed. Generate one VAPID key pair for the installation:
+
+```bash
+npm run push:keys
+```
+
+Set the printed `VAPID_PUBLIC_KEY` and `VAPID_PRIVATE_KEY` values in the
+runtime environment, plus `VAPID_SUBJECT` as either a `mailto:` contact or the
+public HTTPS URL of the installation. Keep the private key secret. Browsers
+require HTTPS for service workers and Web Push (localhost is the development
+exception). Users can then enable push under **Settings → Inbox → Notifications**.
+
 ## Receiving mail
 
 Pick one; both can be on at once.
@@ -79,6 +94,9 @@ and the DNS page shows what to set by hand.
 | `CF_ACCOUNT_ID`, `CF_TOKEN` | unset | Cloudflare Email Sending, and zone management if the token allows |
 | `INBOUND_WEBHOOK_SECRET` | unset | Enables `/api/inbound` for the relay Worker |
 | `TURNSTILE_SECRET_KEY` | unset | Bot protection on login and reset forms (`NEXT_PUBLIC_TURNSTILE_SITE_KEY` at build time) |
+| `VAPID_PUBLIC_KEY` | unset | Public Web Push application-server key |
+| `VAPID_PRIVATE_KEY` | unset | Secret Web Push application-server key |
+| `VAPID_SUBJECT` | unset | Web Push contact URI (`mailto:` or HTTPS) |
 
 ## Operations
 

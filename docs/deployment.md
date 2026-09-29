@@ -30,6 +30,14 @@ Mailflare requires this runtime value:
 
 Paste only the token secret into `CF_TOKEN`. Do not include the word `Bearer` and do not use the token ID. The token must belong to the same Cloudflare account as the domains you connect.
 
+### Optional Web Push configuration
+
+To enable background new-mail notifications, run `npm run push:keys` once and
+store `VAPID_PRIVATE_KEY` as a Worker secret. Configure `VAPID_PUBLIC_KEY` and
+`VAPID_SUBJECT` as Worker variables; the subject must be a `mailto:` URI or the
+public HTTPS URL of the installation. The same VAPID key pair should be kept
+across deployments so existing browser subscriptions remain valid.
+
 ## Step 2: Complete mailflare setup
 
 1. Open the URL of the deployed `mailflare` Worker.

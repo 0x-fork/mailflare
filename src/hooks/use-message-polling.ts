@@ -74,7 +74,7 @@ export function useMessagePolling(): MessageRealtimeState {
 				if (!event) return;
 				dispatchMessagesChanged();
 				setNotification(event);
-				showBrowserNewMessageNotification(event);
+				void showBrowserNewMessageNotification(event);
 			};
 			socket.onerror = () => socket?.close();
 			socket.onclose = scheduleReconnect;

@@ -16,7 +16,12 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
 	title: "Mailflare",
 	description: "Multi-tenant email on Cloudflare",
-	icons: { icon: "/api/branding/icon" },
+	icons: { icon: "/api/branding/icon", apple: "/icon-192.png" },
+	appleWebApp: {
+		capable: true,
+		title: "Mailflare",
+		statusBarStyle: "default",
+	},
 	robots: {
 		index: false,
 		follow: false,

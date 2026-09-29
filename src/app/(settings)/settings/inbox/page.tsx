@@ -2,10 +2,20 @@ import { InboxThreadingSettings } from "@/components/settings/inbox-threading-se
 import { InboxShortcutsSettings } from "@/components/settings/inbox-shortcuts-settings";
 import { MailboxAutoReplyForm } from "@/components/settings/mailbox-auto-reply-form";
 import { SpamFilterSettings } from "@/components/settings/spam-filter-settings";
+import { PushNotificationSettings } from "@/components/settings/push-notification-settings";
 
 export default function SettingsInboxPage() {
 	return (
 		<div className="space-y-8 py-4">
+			<section className="space-y-4">
+				<div>
+					<h2 className="text-xl font-semibold text-neutral-900">Notifications</h2>
+					<p className="mt-1 text-sm text-neutral-500">Choose how Mailflare alerts you about new messages.</p>
+				</div>
+				<div className="rounded-3xl bg-white p-6">
+					<PushNotificationSettings />
+				</div>
+			</section>
 			<section className="space-y-4">
 				<div>
 					<h2 className="text-xl font-semibold text-neutral-900">Spam protection</h2>
