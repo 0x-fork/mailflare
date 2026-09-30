@@ -1,3 +1,4 @@
+import { AppearanceSettings } from "@/components/settings/appearance-settings";
 import { InboxThreadingSettings } from "@/components/settings/inbox-threading-settings";
 import { InboxReadingLayoutSettings } from "@/components/settings/inbox-reading-layout-settings";
 import { InboxShortcutsSettings } from "@/components/settings/inbox-shortcuts-settings";
@@ -14,6 +15,13 @@ export default function SettingsInboxPage() {
 					<p className="mt-1 text-sm text-neutral-500">Choose how you read and interact with email.</p>
 				</div>
 				<div className="divide-y divide-neutral-100 rounded-3xl bg-white p-6">
+					<div className="py-6 first:pt-0 last:pb-0">
+						<div className="mb-4">
+							<h3 className="text-base font-semibold text-neutral-900">Appearance</h3>
+							<p className="mt-1 text-sm text-neutral-500">Choose a light or dark interface.</p>
+						</div>
+						<AppearanceSettings />
+					</div>
 					<div className="py-6 first:pt-0 last:pb-0">
 						<div className="mb-4">
 							<h3 className="text-base font-semibold text-neutral-900">Reading layout</h3>

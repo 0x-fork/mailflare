@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { clearMailboxClientState } from "@/components/mailbox-provider-utils";
 import { BrandingProvider } from "@/components/branding-provider";
 import { NewMessagePopup } from "@/components/new-message-popup";
+import { ThemeSync } from "@/components/theme-sync";
 import { useMessagePolling } from "@/hooks/use-message-polling";
 import { clearMessageClientState } from "@/hooks/utils";
 import { clearMessageDetailCache } from "@/lib/messages/detail-cache";
@@ -43,6 +44,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
 		<QueryClientProvider client={client}>
 			<BrandingProvider>
 				{children}
+				<ThemeSync />
 				{realtime.notification && (
 					<NewMessagePopup
 						notification={realtime.notification}
