@@ -7,6 +7,7 @@ import { newId } from "@/lib/ids";
 import { createUserAccountSchema } from "@/lib/validators";
 import { ensureEmailRoutingRuleToWorker } from "@/lib/cloudflare-api";
 import { ensureMailboxDomainRouting } from "@/lib/mailboxes/domain-addresses";
+import { ensureBookingUsername } from "@/lib/booking/username";
 import type { CreateUserAccountInput } from "./types";
 import {
 	accountListItemFromUser,
@@ -67,6 +68,7 @@ export async function POST(request: Request) {
 				disabled: users.disabled,
 				createdAt: users.createdAt,
 			});
+		await ensureBookingUsername(access.env, userId, email);
 		const mailboxId = newId("mbx");
 		await db.insert(mailboxes).values({
 			id: mailboxId,

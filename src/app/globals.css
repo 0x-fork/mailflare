@@ -89,6 +89,15 @@ pre {
 	100% { transform: translateX(280%) scaleX(0.55); }
 }
 
+@keyframes page-transition-enter {
+	from { opacity: 0; transform: translateY(8px); }
+	to { opacity: 1; transform: translateY(0); }
+}
+
+.page-transition-enter {
+	animation: page-transition-enter 260ms ease-out both;
+}
+
 .route-loading-bar {
 	transform-origin: left;
 	animation: route-loading-bar 1.1s ease-in-out infinite;
@@ -102,6 +111,10 @@ pre {
 
 	.route-loading-bar {
 		width: 100%;
+		animation: none;
+	}
+
+	.page-transition-enter {
 		animation: none;
 	}
 }

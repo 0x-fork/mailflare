@@ -2,7 +2,6 @@ import { and, eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { getDb } from "@/db";
 import { calendarEvents } from "@/db/schema";
-import { requireUser } from "@/lib/auth/cookies";
 import { getEnv } from "@/lib/cloudflare";
 import { createCalendarInvitation } from "@/lib/calendar/utils";
 import { sendEmail } from "@/lib/email/send";
@@ -12,10 +11,12 @@ import { normalizeCalendarColor } from "@/lib/calendar/colors";
 import { DEFAULT_REPEAT_DAYS, normalizeCalendarRepeat, normalizeCalendarRepeatDays, parseCalendarOccurrenceId, parseCalendarRepeatDays, parseExcludedOccurrences } from "@/lib/calendar/recurrence";
 import { newId } from "@/lib/ids";
 import { getRequestTimeZone, normalizeTimeZone } from "@/lib/time/utils";
+import { authorizeCalendarRequest, calendarKeyCanSendInvitations } from "@/lib/calendar/api-auth";
 
 export async function PATCH(request: Request, { params }: CalendarEventRouteParams) {
 	const env = getEnv();
-	const user = await requireUser(env, request);
+	const { user, key, error } = await authorizeCalendarRequest(env, request, "calendar:write");
+	if (error) return error;
 	const { eventId } = await params;
 	const occurrence = parseCalendarOccurrenceId(eventId);
 	const input = await request.json() as CalendarEventInput;
@@ -31,6 +32,7 @@ export async function PATCH(request: Request, { params }: CalendarEventRoutePara
 	if (occurrence && (existing.repeat === "none" || occurrence.startsAt < existing.startsAt || (existing.repeatUntil && occurrence.startsAt >= existing.repeatUntil))) return NextResponse.json({ error: "Occurrence not found" }, { status: 404 });
 	if (existing.repeat !== "none" && effectiveFrom && existing.repeatUntil && effectiveFrom >= existing.repeatUntil) return NextResponse.json({ error: "No future occurrences remain" }, { status: 404 });
 	const attendees = (input.attendees ?? []).map((email) => email.trim()).filter((email) => /^\S+@\S+\.\S+$/.test(email));
+	if (attendees.length && existing.mailboxId && input.from && !calendarKeyCanSendInvitations(key, existing.mailboxId)) return NextResponse.json({ error: "Sending invitations requires mail send permission for this mailbox" }, { status: 403 });
 	if (input.moveOccurrenceToPast) {
 		if (!occurrence || existing.repeat === "none" || startsAt >= new Date()) return NextResponse.json({ error: "Choose a past time for this occurrence" }, { status: 400 });
 		const excluded = parseExcludedOccurrences(existing.excludedOccurrences);
@@ -59,12 +61,13 @@ export async function PATCH(request: Request, { params }: CalendarEventRoutePara
 	return NextResponse.json({ ok: true });
 }
 
-export async function DELETE(_request: Request, { params }: CalendarEventRouteParams) {
+export async function DELETE(request: Request, { params }: CalendarEventRouteParams) {
 	const env = getEnv();
-	const user = await requireUser(env, _request);
+	const { user, error } = await authorizeCalendarRequest(env, request, "calendar:write");
+	if (error) return error;
 	const { eventId } = await params;
 	const occurrence = parseCalendarOccurrenceId(eventId);
-	const input = await _request.json().catch(() => ({})) as CalendarEventInput;
+	const input = await request.json().catch(() => ({})) as CalendarEventInput;
 	const effectiveFrom = input.effectiveFrom ? new Date(input.effectiveFrom) : occurrence?.startsAt;
 	if (effectiveFrom && Number.isNaN(effectiveFrom.getTime())) return NextResponse.json({ error: "Invalid repeat start" }, { status: 400 });
 	const db = getDb(env);

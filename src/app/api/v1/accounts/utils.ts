@@ -9,6 +9,7 @@ import { newId } from "@/lib/ids";
 import { createUserAccountSchema } from "@/lib/validators";
 import { ensureEmailRoutingRuleToWorker } from "@/lib/cloudflare-api";
 import { ensureMailboxDomainRouting } from "@/lib/mailboxes/domain-addresses";
+import { ensureBookingUsername } from "@/lib/booking/username";
 import { accountListItemFromUser, getDomainForAdmin, getExistingMailbox } from "@/app/api/accounts/utils";
 
 export async function GET(request: Request) {
@@ -45,6 +46,7 @@ export async function POST(request: Request) {
 			role: parsed.data.role,
 			createdByUserId: auth.userId,
 		}).returning();
+		await ensureBookingUsername(env, userId, email);
 		const mailboxId = newId("mbx");
 		await db.insert(mailboxes).values({ id: mailboxId, userId, domainId: domain.id, localPart: username, displayName: username });
 		await ensureMailboxDomainRouting(env, db, { id: mailboxId, domainId: domain.id, localPart: username, useAllDomains: true });

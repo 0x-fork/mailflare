@@ -1,13 +1,15 @@
 "use client";
 
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import type { PointerEvent as ReactPointerEvent } from "react";
 import { createPortal } from "react-dom";
 import toast, { Toaster } from "react-hot-toast";
-import { AlignLeft, ChevronDown, ChevronLeft, ChevronRight, Clock3, MapPin, Palette, Plus, Repeat2, Trash2, UsersRound, X } from "lucide-react";
+import { AlignLeft, CalendarPlus2, ChevronDown, ChevronLeft, ChevronRight, Clock3, MapPin, Palette, Plus, Repeat2, Trash2, UsersRound, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { RouteLoadingBar } from "@/components/route-loading-bar";
 import { authFetch } from "@/lib/auth/client";
 import { formatUserDate, getUserTimeZone, parseUserDateTimeLocal } from "@/lib/time/utils";
 import { normalizeCalendarColor } from "@/lib/calendar/colors";
@@ -16,13 +18,13 @@ import { DEFAULT_FOLDER_COLOR, FOLDER_COLOR_OPTIONS } from "@/lib/folders/colors
 import type { CalendarRepeat } from "@/lib/calendar/types";
 import { useSelectedMailbox } from "@/components/mailbox-provider";
 import { useSidebar } from "@/components/sidebar-state";
-import { SidebarResizeBoundary } from "@/components/sidebar-resize-boundary";
+import { UpcomingSidebar } from "../upcoming-sidebar";
 import type { CalendarEvent, CalendarView, EventDragPreview, EventResizeEdge, EventResizeSession } from "./types";
 import {
   addDays, addMonths, calendarAnchorDay, CALENDAR_END_HOUR, CALENDAR_HOUR_HEIGHT, CALENDAR_START_HOUR,
   currentTimePosition, dateKey, defaultCalendarStart, dropStartForPosition, EVENT_COLOR_CLASSES, eventEndAfterMinutes, eventPosition, expandCalendarEvents,
-  formatEventRange, formatHour, formatLocalDateTime, groupUpcomingEvents,
-  monthGridDates, PAST_EVENT_COLOR_CLASSES, rescheduleCalendarOccurrence, resizeEventTimes, startOfDay, startOfMonth, startOfWeek, takeUpcomingGroups, UPCOMING_BATCH_SIZE, WEEKDAY_OPTIONS,
+  formatEventRange, formatHour, formatLocalDateTime,
+  monthGridDates, PAST_EVENT_COLOR_CLASSES, rescheduleCalendarOccurrence, resizeEventTimes, startOfDay, startOfMonth, startOfWeek, WEEKDAY_OPTIONS,
 } from "./utils";
 import clsx from "clsx";
 
@@ -30,6 +32,7 @@ const eventFieldClass = "h-9 border-transparent bg-transparent px-2 shadow-none 
 
 export default function CalendarPage() {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
+  const [loading, setLoading] = useState(true);
   const [eventsVersion, setEventsVersion] = useState(0);
   const [currentTime, setCurrentTime] = useState(() => Date.now());
   const [visibleDate, setVisibleDate] = useState(() => new Date());
@@ -37,8 +40,7 @@ export default function CalendarPage() {
   const [monthPickerOpen, setMonthPickerOpen] = useState(false);
   const [pickerMonth, setPickerMonth] = useState(() => new Date());
   const monthPickerRef = useRef<HTMLDivElement | null>(null);
-  const upcomingScrollRef = useRef<HTMLDivElement | null>(null);
-  const upcomingSentinelRef = useRef<HTMLDivElement | null>(null);
+  const openedEventFromUrl = useRef<string | null>(null);
   const [headerTarget, setHeaderTarget] = useState<HTMLElement | null>(null);
   const [draggedEvent, setDraggedEvent] = useState<CalendarEvent | null>(null);
   const [resizingEvent, setResizingEvent] = useState<CalendarEvent | null>(null);
@@ -59,7 +61,6 @@ export default function CalendarPage() {
   const [description, setDescription] = useState("");
   const [editing, setEditing] = useState<CalendarEvent | null>(null);
   const [pendingAction, setPendingAction] = useState<"save" | string | null>(null);
-  const [visibleUpcomingCount, setVisibleUpcomingCount] = useState(UPCOMING_BATCH_SIZE);
   const { selectedMailbox } = useSelectedMailbox();
   const { minimal } = useSidebar();
 
@@ -71,9 +72,6 @@ export default function CalendarPage() {
     () => view === "day" ? [startOfDay(visibleDate)] : Array.from({ length: 7 }, (_, index) => addDays(weekStart, index)),
     [view, visibleDate, weekStart],
   );
-  const upcomingGroups = useMemo(() => groupUpcomingEvents(events, today), [events, today]);
-  const upcomingTotal = useMemo(() => upcomingGroups.reduce((count, group) => count + group.events.length, 0), [upcomingGroups]);
-  const visibleUpcomingGroups = useMemo(() => takeUpcomingGroups(upcomingGroups, visibleUpcomingCount), [upcomingGroups, visibleUpcomingCount]);
   const pickerDates = useMemo(() => monthGridDates(pickerMonth), [pickerMonth]);
   const previewEvent = useMemo(() => dragPreview && (draggedEvent || resizingEvent)
     ? {
@@ -96,21 +94,6 @@ export default function CalendarPage() {
   }, []);
 
   useEffect(() => {
-    setVisibleUpcomingCount(UPCOMING_BATCH_SIZE);
-  }, [events]);
-
-  useEffect(() => {
-    if (minimal || visibleUpcomingCount >= upcomingTotal || !upcomingScrollRef.current || !upcomingSentinelRef.current) return;
-    const observer = new IntersectionObserver(([entry]) => {
-      if (!entry?.isIntersecting) return;
-      observer.disconnect();
-      setVisibleUpcomingCount((count) => Math.min(count + UPCOMING_BATCH_SIZE, upcomingTotal));
-    }, { root: upcomingScrollRef.current, rootMargin: "0px 0px 100px 0px" });
-    observer.observe(upcomingSentinelRef.current);
-    return () => observer.disconnect();
-  }, [minimal, upcomingTotal, visibleUpcomingCount]);
-
-  useEffect(() => {
     if (!monthPickerOpen) return;
     const closeOnOutsidePointer = (event: PointerEvent) => {
       if (!monthPickerRef.current?.contains(event.target as Node)) setMonthPickerOpen(false);
@@ -127,6 +110,8 @@ export default function CalendarPage() {
   }, [monthPickerOpen]);
 
   useEffect(() => {
+    let active = true;
+    setLoading(true);
     const start = new Date(Math.min(today.getTime(), weekStart.getTime(), startOfDay(visibleDate).getTime()));
     const end = new Date(Math.max(addDays(today, 90).getTime(), addDays(weekStart, 7).getTime(), addDays(visibleDate, 1).getTime()));
     void authFetch(`/api/calendar/events?start=${start.toISOString()}&end=${end.toISOString()}`)
@@ -134,9 +119,20 @@ export default function CalendarPage() {
         if (!response.ok) throw new Error("Could not load calendar events.");
         return response.json();
       })
-      .then((data) => setEvents(expandCalendarEvents(data.events ?? [], start, end)))
-      .catch(() => toast.error("Could not load calendar events."));
+      .then((data) => { if (active) setEvents(expandCalendarEvents(data.events ?? [], start, end)); })
+      .catch(() => { if (active) toast.error("Could not load calendar events."); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
   }, [today, visibleDate, weekStart, eventsVersion]);
+
+  useEffect(() => {
+    const eventFromUrl = new URLSearchParams(window.location.search).get("event");
+    if (!eventFromUrl || openedEventFromUrl.current === eventFromUrl) return;
+    const event = events.find((item) => item.id === eventFromUrl);
+    if (!event) return;
+    openedEventFromUrl.current = eventFromUrl;
+    editEvent(event);
+  }, [events]);
 
   function openNewEvent(day = visibleDate, startAt?: Date) {
     const start = startAt ? new Date(startAt) : defaultCalendarStart(day);
@@ -351,8 +347,10 @@ export default function CalendarPage() {
   return (
     <div className={clsx("flex h-full min-h-0 flex-col bg-[#f6f8fc] pl-3 lg:flex-row transition-[gap] duration-200 ease-in-out motion-reduce:transition-none", minimal ? "gap-0" : "gap-3")}>
       <Toaster position="bottom-right" />
+      {loading && <RouteLoadingBar />}
       {headerTarget && createPortal(
         <div className="flex min-w-0 flex-1 items-center justify-between gap-3">
+          <div className="flex shrink-0 items-center gap-2">
           <div ref={monthPickerRef} className="relative shrink-0">
             <button type="button" onClick={() => {
               setPickerMonth(startOfMonth(visibleDate));
@@ -397,6 +395,7 @@ export default function CalendarPage() {
               </div>
             )}
           </div>
+          </div>
           <div className="flex shrink-0 items-center gap-1.5">
             <button type="button" aria-label={`Previous ${view}`} onClick={() => setVisibleDate(addDays(visibleDate, view === "week" ? -7 : -1))} className="flex h-10 w-10 items-center justify-center rounded-full text-neutral-600 hover:bg-white"><ChevronLeft className="h-6 w-6" /></button>
             <button type="button" aria-label={`Next ${view}`} onClick={() => setVisibleDate(addDays(visibleDate, view === "week" ? 7 : 1))} className="flex h-10 w-10 items-center justify-center rounded-full text-neutral-600 hover:bg-white"><ChevronRight className="h-6 w-6" /></button>
@@ -413,37 +412,9 @@ export default function CalendarPage() {
         </div>,
         headerTarget,
       )}
-      <aside className={clsx("relative shrink-0 rounded-t-3xl bg-white transition-[width,max-height] duration-200 ease-in-out motion-reduce:transition-none lg:h-full lg:max-h-none", minimal ? "w-0 max-h-0" : "w-full max-h-[36vh] lg:w-[var(--sidebar-width)]")} aria-hidden={minimal}>
-        {!minimal && (
-          <div ref={upcomingScrollRef} className="h-full overflow-y-auto overscroll-contain rounded-t-3xl px-5 py-5">
-            {upcomingGroups.length === 0 ? (
-              <div>
-                <h2 className="text-lg font-semibold text-neutral-900">Upcoming</h2>
-                <p className="mt-4 text-sm text-neutral-400">No upcoming events.</p>
-              </div>
-            ) : visibleUpcomingGroups.map((group) => (
-              <section key={group.key} className="mb-6 last:mb-0">
-                <h2 className="sticky -top-5 z-10 -mx-5 mb-2 bg-white px-5 py-2 text-base font-semibold text-neutral-900">{group.label}</h2>
-                <div className="space-y-2">
-                  {group.events.map((event) => (
-                    <button key={event.id} type="button" onClick={() => editEvent(event)} className="group flex w-full items-start gap-3 text-left">
-                      <span className="mt-0.5 h-4 w-4 shrink-0 rounded-full border-2 border-white ring-1 ring-neutral-200" style={{ backgroundColor: normalizeCalendarColor(event.color) }} />
-                      <span className="min-w-0">
-                        <span className="block truncate text-sm text-neutral-700 group-hover:text-neutral-950">{event.title}</span>
-                        <span className="block text-xs text-neutral-400">{formatEventRange(event)}</span>
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              </section>
-            ))}
-            {visibleUpcomingCount < upcomingTotal && <div ref={upcomingSentinelRef} aria-hidden="true" className="h-1" />}
-          </div>
-        )}
-        {!minimal && <div className="hidden lg:block"><SidebarResizeBoundary /></div>}
-      </aside>
+      <UpcomingSidebar events={events} onSelect={editEvent} />
 
-      <section className="min-h-0 min-w-0 flex-1 rounded-t-3xl bg-white flex flex-col overflow-hidden">
+      <section aria-busy={loading} className="min-h-0 min-w-0 flex-1 rounded-t-3xl bg-white flex flex-col overflow-hidden">
         <div className="min-h-0 min-w-0 flex-1 overflow-auto overscroll-contain">
           <div className={clsx("w-full", view === "week" ? "min-w-190" : "min-w-90")}>
             <div className="sticky top-0 z-30 grid h-14 border-b border-neutral-200 bg-white" style={{ gridTemplateColumns: `64px repeat(${days.length}, minmax(0, 1fr))` }}>

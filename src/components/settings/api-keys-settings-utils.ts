@@ -14,6 +14,8 @@ export const MCP_KEY_SCOPES: { value: McpKeyScope; label: string; description: s
 export const STANDARD_KEY_SCOPES: { value: ApiKeyScope; label: string; description: string }[] = [
 	{ value: "read", label: "Read mail", description: "Read messages through the API." },
 	{ value: "send", label: "Send mail", description: "Send messages directly through the API." },
+	{ value: "calendar:read", label: "Read calendar", description: "Read your calendar events through the API." },
+	{ value: "calendar:write", label: "Manage calendar", description: "Create, update, and delete your calendar events through the API." },
 ];
 
 async function responseData(response: Response): Promise<{ error?: unknown; key?: string; apiKeys?: ManagedApiKey[] }> {
