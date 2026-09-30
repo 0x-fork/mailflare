@@ -259,6 +259,21 @@ export const messages = sqliteTable(
 		index("messages_thread_idx").on(t.mailboxId, t.threadId),
 		index("messages_provider_message_idx").on(t.mailboxId, t.providerMessageId),
 		index("messages_raw_r2_key_idx").on(t.rawR2Key),
+		index("messages_inbox_page_idx").on(
+			t.mailboxId,
+			t.status,
+			t.folderId,
+			sql`${t.createdAt} desc`,
+			sql`${t.id} desc`,
+		),
+		index("messages_thread_key_idx").on(
+			t.mailboxId,
+			t.status,
+			t.folderId,
+			sql`coalesce(${t.threadId}, ${t.id})`,
+			t.createdAt,
+		),
+		index("messages_mailbox_thread_key_idx").on(t.mailboxId, sql`coalesce(${t.threadId}, ${t.id})`),
 	],
 );
 
