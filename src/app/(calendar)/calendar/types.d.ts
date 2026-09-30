@@ -14,10 +14,13 @@ export type CalendarEvent = {
   repeatAnchorDay: number | null;
   repeatUntil: string | null;
   excludedOccurrences: string;
+  timeZone?: string | null;
   seriesStartsAt?: string;
 };
 
 export type CalendarView = "week" | "day";
+
+export type CalendarEventTimes = { startsAt: Date; endsAt: Date };
 
 export type EventGroup = {
   key: string;

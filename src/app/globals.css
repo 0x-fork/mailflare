@@ -66,27 +66,36 @@ pre {
 }
 
 .dialog-overlay[data-state="open"] {
-	animation: dialog-overlay-show 180ms ease-out;
+	animation: dialog-overlay-show 180ms ease-out both;
 }
 
 .dialog-overlay[data-state="closed"] {
-	animation: dialog-overlay-hide 130ms ease-in;
+	animation: dialog-overlay-hide 130ms ease-in both;
 }
 
 .dialog-content[data-state="open"] {
 	transform-origin: center;
-	animation: dialog-content-show 180ms cubic-bezier(0.2, 0.8, 0.2, 1);
+	animation: dialog-content-show 180ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
 
 .dialog-content[data-state="closed"] {
 	transform-origin: center;
-	animation: dialog-content-hide 130ms ease-in;
+	animation: dialog-content-hide 130ms ease-in both;
 }
 
 @keyframes route-loading-bar {
 	0% { transform: translateX(-110%) scaleX(0.55); }
 	50% { transform: translateX(110%) scaleX(1); }
 	100% { transform: translateX(280%) scaleX(0.55); }
+}
+
+@keyframes page-transition-enter {
+	from { opacity: 0; transform: translateY(8px); }
+	to { opacity: 1; transform: translateY(0); }
+}
+
+.page-transition-enter {
+	animation: page-transition-enter 260ms ease-out both;
 }
 
 .route-loading-bar {
@@ -102,6 +111,10 @@ pre {
 
 	.route-loading-bar {
 		width: 100%;
+		animation: none;
+	}
+
+	.page-transition-enter {
 		animation: none;
 	}
 }

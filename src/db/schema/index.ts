@@ -9,6 +9,8 @@ export const users = sqliteTable("users", {
 	forwardingEmail: text("forwarding_email"),
 	passwordHash: text("password_hash").notNull(),
 	name: text("name").notNull(),
+	bookingUsername: text("booking_username"),
+	timeZone: text("time_zone"),
 	avatarKey: text("avatar_key"),
 	role: text("role", { enum: ["admin", "user"] }).notNull().default("user"),
 	disabled: integer("disabled", { mode: "boolean" }).notNull().default(false),
@@ -24,7 +26,7 @@ export const users = sqliteTable("users", {
 	createdAt: integer("created_at", { mode: "timestamp" })
 		.notNull()
 		.$defaultFn(() => new Date()),
-});
+}, (t) => [uniqueIndex("users_booking_username_idx").on(t.bookingUsername)]);
 
 export const domains = sqliteTable(
 	"domains",
@@ -257,6 +259,21 @@ export const messages = sqliteTable(
 		index("messages_thread_idx").on(t.mailboxId, t.threadId),
 		index("messages_provider_message_idx").on(t.mailboxId, t.providerMessageId),
 		index("messages_raw_r2_key_idx").on(t.rawR2Key),
+		index("messages_inbox_page_idx").on(
+			t.mailboxId,
+			t.status,
+			t.folderId,
+			sql`${t.createdAt} desc`,
+			sql`${t.id} desc`,
+		),
+		index("messages_thread_key_idx").on(
+			t.mailboxId,
+			t.status,
+			t.folderId,
+			sql`coalesce(${t.threadId}, ${t.id})`,
+			t.createdAt,
+		),
+		index("messages_mailbox_thread_key_idx").on(t.mailboxId, sql`coalesce(${t.threadId}, ${t.id})`),
 	],
 );
 
@@ -386,12 +403,37 @@ export const calendarEvents = sqliteTable(
 		repeatAnchorDay: integer("repeat_anchor_day"),
 		repeatUntil: integer("repeat_until", { mode: "timestamp" }),
 		excludedOccurrences: text("excluded_occurrences").notNull().default("[]"),
+		timeZone: text("time_zone"),
 		startsAt: integer("starts_at", { mode: "timestamp" }).notNull(),
 		endsAt: integer("ends_at", { mode: "timestamp" }).notNull(),
 		createdAt: integer("created_at", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
 		updatedAt: integer("updated_at", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
 	},
 	(t) => [index("calendar_events_user_starts_idx").on(t.userId, t.startsAt)],
+);
+
+export const bookingEvents = sqliteTable(
+	"booking_events",
+	{
+		id: text("id").primaryKey(),
+		userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+		name: text("name").notNull(),
+		slug: text("slug").notNull().default(""),
+		description: text("description").notNull().default(""),
+		color: text("color").notNull().default("#2563eb"),
+		hostIds: text("host_ids").notNull().default("[]"),
+		durationMinutes: integer("duration_minutes").notNull(),
+		location: text("location").notNull().default(""),
+		weekdays: text("weekdays").notNull().default("[1,2,3,4,5]"),
+		startTime: text("start_time").notNull().default("09:00"),
+		endTime: text("end_time").notNull().default("17:00"),
+		timeRanges: text("time_ranges").notNull().default('[{"startTime":"09:00","endTime":"17:00"}]'),
+		timeZone: text("time_zone").notNull().default("UTC"),
+		enabled: integer("enabled", { mode: "boolean" }).notNull().default(true),
+		createdAt: integer("created_at", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
+		updatedAt: integer("updated_at", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
+	},
+	(t) => [index("booking_events_user_idx").on(t.userId), uniqueIndex("booking_events_user_slug_idx").on(t.userId, t.slug)],
 );
 
 export const routingRules = sqliteTable(
@@ -751,6 +793,7 @@ export const schema = {
 	outboundJobs,
 	emailTemplates,
 	calendarEvents,
+	bookingEvents,
 	routingRules,
 	webhooks,
 	webhookDeliveries,

@@ -269,7 +269,7 @@ export function MailboxSelector({ initialUser }: MailboxSelectorProps = {}) {
 							onClick={() => setOpen(false)}
 							className="mt-4 flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium text-neutral-700 hover:bg-[#f2f6fc]"
 						>
-							<Inbox className="h-5 w-5 text-neutral-600" />
+							<Inbox size={18} className="text-neutral-600" />
 							Inbox
 						</Link>
 						<Link
@@ -277,7 +277,7 @@ export function MailboxSelector({ initialUser }: MailboxSelectorProps = {}) {
 							onClick={() => setOpen(false)}
 							className="mt-1 flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium text-neutral-700 hover:bg-[#f2f6fc]"
 						>
-							<CalendarDays className="h-5 w-5 text-neutral-600" />
+							<CalendarDays size={18} className="text-neutral-600" />
 							Calendar
 						</Link>
 						<Link
@@ -285,7 +285,7 @@ export function MailboxSelector({ initialUser }: MailboxSelectorProps = {}) {
 							onClick={() => setOpen(false)}
 							className="mt-1 flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium text-neutral-700 hover:bg-[#f2f6fc]"
 						>
-							<Settings className="h-5 w-5 text-neutral-600" />
+							<Settings size={18} className="text-neutral-600" />
 							Settings
 						</Link>
 					</div>
@@ -321,7 +321,7 @@ export function MailboxSelector({ initialUser }: MailboxSelectorProps = {}) {
 								onClick={() => setOpen(false)}
 								className={`flex items-center gap-3 border-t border-neutral-100 px-5 py-4 text-sm font-medium text-neutral-800 hover:bg-[#f2f6fc] ${adminActive ? "bg-blue-50" : ""}`}
 							>
-								<ShieldCheck className="h-5 w-5 text-neutral-600" />
+								<ShieldCheck size={18} className="text-neutral-600" />
 								Admin
 								{adminActive && <Check className="ml-auto h-4 w-4 text-blue-600" />}
 							</Link>
@@ -331,7 +331,7 @@ export function MailboxSelector({ initialUser }: MailboxSelectorProps = {}) {
 							onClick={logout}
 							className="flex w-full items-center gap-3 border-t border-neutral-100 px-5 py-4 text-left text-sm font-medium text-neutral-800 hover:bg-[#f2f6fc]"
 						>
-							<LogOut className="h-5 w-5 text-neutral-600" />
+							<LogOut size={18} className="text-neutral-600" />
 							Sign out
 						</button>
 					</div>

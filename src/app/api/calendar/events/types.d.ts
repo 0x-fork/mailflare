@@ -9,6 +9,7 @@ export type CalendarEventInput = {
 	repeat?: CalendarRepeat;
 	repeatDays?: number[];
 	repeatAnchorDay?: number;
+	timeZone?: string;
 	effectiveFrom?: string;
 	moveOccurrenceToPast?: boolean;
 	startsAt: string;

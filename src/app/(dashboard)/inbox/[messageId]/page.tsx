@@ -3,7 +3,7 @@
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Cloud, ExternalLink } from "lucide-react";
-import dayjs from "dayjs";
+import { formatUserDate } from "@/lib/time/utils";
 import { MarkAsRead } from "@/components/mark-read";
 import { useSelectedMailbox } from "@/components/mailbox-provider";
 import { ContactDetailsTrigger } from "@/components/contacts/contact-details";
@@ -258,7 +258,7 @@ export default function MessageDetailPage() {
             </div>
             <div className="flex shrink-0 items-center gap-2">
               <p className="text-xs">
-                {dayjs(message.createdAt).format("MMM DD, YYYY, hh:mmA")}
+                {formatUserDate(message.createdAt, { month: "short", day: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}
               </p>
               <ThreadMessageActions
                 message={currentThreadMessage}
