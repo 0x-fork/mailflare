@@ -125,7 +125,7 @@ export const updateManagedAccountSchema = z.object({
 	canManageMailboxes: z.boolean(),
 	forwardingEmail: z.preprocess(
 		(value) => (typeof value === "string" ? value.trim() : value),
-		z.string().email().or(z.literal("")).optional().transform((value) => value === undefined ? undefined : value || null),
+		z.string().email().or(z.literal("")).nullable().optional().transform((value) => value === undefined ? undefined : value || null),
 	),
 	/** Set a new password for the account; every session of that user is revoked. */
 	password: z.preprocess(

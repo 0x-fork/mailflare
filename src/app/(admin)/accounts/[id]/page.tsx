@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { ProgressiveAvatarImage } from "@/components/progressive-avatar-image";
 import { Label } from "@/components/ui/label";
@@ -35,8 +35,7 @@ export default function AccountDetailsPage() {
 		setMessage(null);
 		try {
 			await saveManagedAccount(account);
-			setAccount({ ...account, newPassword: "" });
-			setMessage(account.newPassword ? "Account details updated and password reset" : "Account details updated");
+			setMessage("Account details updated");
 		} catch (error) {
 			setMessage(error instanceof Error ? error.message : "Unable to update account");
 		} finally {
@@ -100,25 +99,21 @@ export default function AccountDetailsPage() {
 						Incoming mail will also be sent to this verified Cloudflare Email Routing destination.
 					</p>
 				</div>}
-				<div className="space-y-2">
-					<Label htmlFor="account-new-password">Reset password (optional)</Label>
-					<Input
-						id="account-new-password"
-						type="password"
-						autoComplete="new-password"
-						minLength={8}
-						value={account.newPassword ?? ""}
-						onChange={(event) => setAccount({ ...account, newPassword: event.target.value })}
-						placeholder="Leave blank to keep the current password"
+				<div className="flex items-center justify-between gap-4 rounded-2xl border border-neutral-200 bg-neutral-50 p-4">
+					<div className="space-y-1">
+						<Label htmlFor="account-enabled" className="font-semibold text-neutral-900">Account enabled</Label>
+						<p id="account-enabled-description" className="text-xs leading-5 text-neutral-500">
+							Allow this account to sign in and access its inboxes.
+						</p>
+					</div>
+					<Switch
+						id="account-enabled"
+						aria-describedby="account-enabled-description"
+						checked={!account.disabled}
+						disabled={saving}
+						onCheckedChange={(enabled) => setAccount({ ...account, disabled: !enabled })}
 					/>
-					<p className="text-xs leading-5 text-neutral-500">
-						Setting a password signs this account out everywhere. Share it with the user through another channel.
-					</p>
 				</div>
-				<label className="flex items-center gap-3 text-sm">
-					<Checkbox checked={!account.disabled} onChange={(event) => setAccount({ ...account, disabled: !event.target.checked })} />
-					Account enabled
-				</label>
 				<Button onClick={() => void saveDetails()} disabled={saving || !account.name.trim()}>
 					{saving ? "Saving..." : "Save details"}
 				</Button>
