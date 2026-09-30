@@ -32,27 +32,33 @@ export default function AccountPasswordPage() {
 				onSubmit={(event) => void saveAccountPassword({ event, account, password, setPassword, setSaving, setMessage })}
 				className="space-y-5 rounded-3xl bg-white p-6"
 			>
-				<div className="space-y-2">
-					<Label htmlFor="account-new-password">New password</Label>
-					<Input
-						id="account-new-password"
-						type="password"
-						autoComplete="new-password"
-						minLength={8}
-						maxLength={128}
-						required
-						value={password}
-						disabled={!account || saving}
-						onChange={(event) => setPassword(event.target.value)}
-						placeholder="Enter at least 8 characters"
-					/>
-					<p className="text-xs leading-5 text-neutral-500">
-						Setting a password signs this account out everywhere. Share it with the user through another channel.
-					</p>
-				</div>
-				<Button type="submit" disabled={!account || saving || password.trim().length < 8}>
-					{saving ? "Resetting..." : "Reset password"}
-				</Button>
+				{account && !account.editable ? (
+					<p className="text-sm text-neutral-500">Only the primary admin can reset an admin account password.</p>
+				) : (
+					<>
+						<div className="space-y-2">
+							<Label htmlFor="account-new-password">New password</Label>
+							<Input
+								id="account-new-password"
+								type="password"
+								autoComplete="new-password"
+								minLength={8}
+								maxLength={128}
+								required
+								value={password}
+								disabled={!account || saving}
+								onChange={(event) => setPassword(event.target.value)}
+								placeholder="Enter at least 8 characters"
+							/>
+							<p className="text-xs leading-5 text-neutral-500">
+								Setting a password signs this account out everywhere. Share it with the user through another channel.
+							</p>
+						</div>
+						<Button type="submit" disabled={!account || saving || password.trim().length < 8}>
+							{saving ? "Resetting..." : "Reset password"}
+						</Button>
+					</>
+				)}
 			</form>
 			{message && <p role="status" className="text-sm text-neutral-500">{message}</p>}
 		</div>

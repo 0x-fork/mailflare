@@ -9,6 +9,7 @@ import { ThemeSync } from "@/components/theme-sync";
 import { useMessagePolling } from "@/hooks/use-message-polling";
 import { clearMessageClientState } from "@/hooks/utils";
 import { clearMessageDetailCache } from "@/lib/messages/detail-cache";
+import { clearCurrentUserCache } from "@/hooks/use-current-user";
 import { AUTH_SESSION_CHANGED_EVENT } from "@/lib/auth/client";
 
 export function Providers({ children }: { children: React.ReactNode }) {
@@ -34,6 +35,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
 			clearMailboxClientState();
 			clearMessageClientState();
 			clearMessageDetailCache();
+			clearCurrentUserCache();
 		}
 
 		window.addEventListener(AUTH_SESSION_CHANGED_EVENT, resetUserScopedState);

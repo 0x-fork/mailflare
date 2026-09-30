@@ -13,8 +13,14 @@ export const users = sqliteTable("users", {
 	timeZone: text("time_zone"),
 	avatarKey: text("avatar_key"),
 	role: text("role", { enum: ["admin", "user"] }).notNull().default("user"),
+	// Exactly one account is the primary admin: the one created during setup.
+	// They own administrator management and can hand the role to another account.
+	isPrimaryAdmin: integer("is_primary_admin", { mode: "boolean" }).notNull().default(false),
 	disabled: integer("disabled", { mode: "boolean" }).notNull().default(false),
 	canManageMailboxes: integer("can_manage_mailboxes", { mode: "boolean" }).notNull().default(false),
+	// Capabilities the primary admin grants to other admins.
+	canManageDomains: integer("can_manage_domains", { mode: "boolean" }).notNull().default(false),
+	canManageUsers: integer("can_manage_users", { mode: "boolean" }).notNull().default(false),
 	keyboardShortcutsEnabled: integer("keyboard_shortcuts_enabled", { mode: "boolean" }).notNull().default(true),
 	spamProtectionEnabled: integer("spam_protection_enabled", { mode: "boolean" }).notNull().default(true),
 	// TOTP second factor. The secret is written at enrolment and only counts

@@ -4,6 +4,7 @@ import { getEnv } from "@/lib/cloudflare";
 import { getDb } from "@/db";
 import { users } from "@/db/schema";
 import { authenticateAdminApiKey, canManageAdminAccounts } from "@/lib/api/admin-auth";
+import { isPrimaryAdmin } from "@/lib/auth/admin";
 import { createUserAccountSchema } from "@/lib/validators";
 import { accountListItemFromUser } from "@/app/api/accounts/utils";
 import { createAccountResponse } from "@/app/api/accounts/create";
@@ -24,5 +25,8 @@ export async function POST(request: Request) {
 	if (!(await canManageAdminAccounts(env))) return NextResponse.json({ error: "A Team license is required to manage accounts" }, { status: 403 });
 	const parsed = createUserAccountSchema.safeParse(await request.json().catch(() => null));
 	if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
+	if (parsed.data.role === "admin" && !isPrimaryAdmin(auth.user)) {
+		return NextResponse.json({ error: "Only the primary admin can create admin accounts" }, { status: 403 });
+	}
 	return createAccountResponse(env, auth.userId, parsed.data);
 }

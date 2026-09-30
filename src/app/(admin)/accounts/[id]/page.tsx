@@ -63,6 +63,11 @@ export default function AccountDetailsPage() {
 				<p className="mt-2 text-sm text-neutral-500">Update this account&apos;s profile and status.</p>
 			</div>
 			<section className="space-y-5 rounded-3xl bg-white p-6">
+				{!account.editable && (
+					<p className="rounded-2xl bg-neutral-50 p-4 text-sm text-neutral-500">
+						You do not have permission to edit this account. Only the primary admin can manage admin accounts.
+					</p>
+				)}
 				<div className="flex items-center gap-4">
 					<span className="relative flex h-16 w-16 items-center justify-center overflow-hidden rounded-full bg-blue-100 text-xl font-semibold text-blue-700">
 						{account.name.charAt(0).toUpperCase()}
@@ -70,13 +75,15 @@ export default function AccountDetailsPage() {
 							<ProgressiveAvatarImage src={getManagedAccountAvatarUrl(id, avatarVersion)} alt="" className="absolute inset-0 h-full w-full object-cover" />
 						)}
 					</span>
-					<Label className="cursor-pointer">
-						<span className="inline-flex h-9 items-center gap-2 rounded-md border border-neutral-200 px-3 text-sm">
-							<Upload className="h-4 w-4" />
-							Change avatar
-						</span>
-						<Input type="file" accept="image/jpeg,image/png,image/webp,image/gif" className="sr-only" onChange={(event) => void uploadAvatar(event.target.files?.[0])} />
-					</Label>
+					{account.editable && (
+						<Label className="cursor-pointer">
+							<span className="inline-flex h-9 items-center gap-2 rounded-md border border-neutral-200 px-3 text-sm">
+								<Upload className="h-4 w-4" />
+								Change avatar
+							</span>
+							<Input type="file" accept="image/jpeg,image/png,image/webp,image/gif" className="sr-only" onChange={(event) => void uploadAvatar(event.target.files?.[0])} />
+						</Label>
+					)}
 				</div>
 				<div className="space-y-2">
 					<Label htmlFor="account-email">Email</Label>
@@ -84,7 +91,7 @@ export default function AccountDetailsPage() {
 				</div>
 				<div className="space-y-2">
 					<Label htmlFor="account-name">Name</Label>
-					<Input id="account-name" value={account.name} onChange={(event) => setAccount({ ...account, name: event.target.value })} />
+					<Input id="account-name" value={account.name} disabled={!account.editable} onChange={(event) => setAccount({ ...account, name: event.target.value })} />
 				</div>
 				{account.canForwardEmail && <div className="space-y-2">
 					<Label htmlFor="forwarding-email">Forwarding email (optional)</Label>
@@ -92,6 +99,7 @@ export default function AccountDetailsPage() {
 						id="forwarding-email"
 						type="email"
 						value={account.forwardingEmail ?? ""}
+						disabled={!account.editable}
 						onChange={(event) => setAccount({ ...account, forwardingEmail: event.target.value || null })}
 						placeholder="destination@example.com"
 					/>
@@ -103,20 +111,22 @@ export default function AccountDetailsPage() {
 					<div className="space-y-1">
 						<Label htmlFor="account-enabled" className="font-semibold text-neutral-900">Account enabled</Label>
 						<p id="account-enabled-description" className="text-xs leading-5 text-neutral-500">
-							Allow this account to sign in and access its inboxes.
+							{account.isPrimaryAdmin ? "The primary admin account always stays enabled." : "Allow this account to sign in and access its inboxes."}
 						</p>
 					</div>
 					<Switch
 						id="account-enabled"
 						aria-describedby="account-enabled-description"
 						checked={!account.disabled}
-						disabled={saving}
+						disabled={saving || !account.editable || account.isPrimaryAdmin}
 						onCheckedChange={(enabled) => setAccount({ ...account, disabled: !enabled })}
 					/>
 				</div>
-				<Button onClick={() => void saveDetails()} disabled={saving || !account.name.trim()}>
-					{saving ? "Saving..." : "Save details"}
-				</Button>
+				{account.editable && (
+					<Button onClick={() => void saveDetails()} disabled={saving || !account.name.trim()}>
+						{saving ? "Saving..." : "Save details"}
+					</Button>
+				)}
 			</section>
 			{message && <p className="text-sm text-neutral-500">{message}</p>}
 		</div>

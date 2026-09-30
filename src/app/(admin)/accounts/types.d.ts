@@ -26,9 +26,12 @@ export type Account = {
 	name: string;
 	resetEmail: string | null;
 	role: "admin" | "user";
+	isPrimaryAdmin?: boolean;
 	disabled?: boolean;
 	hasAvatar?: boolean;
 	canManageMailboxes?: boolean;
+	canManageDomains?: boolean;
+	canManageUsers?: boolean;
 	createdAt: string;
 	mailboxId?: string | null;
 	localPart?: string | null;
