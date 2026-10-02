@@ -17,8 +17,8 @@ import {
 import { cn } from "@/lib/utils";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { NavItem } from "./components-nav";
+import { NavSectionHeader, useSectionOpen } from "./nav-section-header";
 import { SidebarFooter } from "./sidebar-footer";
-import { useBranding } from "./branding-provider";
 import { SidebarHeader } from "./sidebar-header";
 import { SidebarScaffold } from "./sidebar-scaffold";
 import { useSidebar } from "./sidebar-state";
@@ -66,13 +66,30 @@ const sections: { label?: string; links: AdminNavLink[] }[] = [
   },
 ];
 
+function AdminSection({ label, links, showDivider, minimal }: { label?: string; links: AdminNavLink[]; showDivider: boolean; minimal: boolean }) {
+  const [open, toggle] = useSectionOpen(`mailflare:nav:admin-section-open:${label ?? ""}`);
+  // Unlabelled sections have nothing to toggle; the icon rail always shows everything.
+  const expanded = minimal || !label || open;
+  return (
+    <section>
+      {showDivider && <hr className="mx-6 mb-3 border-neutral-200/70" />}
+      {!minimal && label && <NavSectionHeader label={label} open={open} onToggle={toggle} />}
+      {expanded && (
+        <div className="space-y-px">
+          {links.map((link) => (
+            <NavItem link={link} key={link.href} />
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
 export function AdminNav({ className }: { className?: string }) {
-  const branding = useBranding();
   const { minimal } = useSidebar();
   const user = useCurrentUser();
 
   function canSee(link: AdminNavLink): boolean {
-    if (link.href === "/branding" && !branding.canCustomizeBranding) return false;
     if (!link.permission) return true;
     if (!user) return false;
     if (link.permission === "primary") return user.isPrimaryAdmin;
@@ -89,19 +106,7 @@ export function AdminNav({ className }: { className?: string }) {
 
           return (
             // The first section has no label, so fall back to its first href for a stable key.
-            <section key={section.label ?? links[0].href}>
-              {minimal && sectionIndex > 0 && <hr className="mx-6 mb-3 border-neutral-200/70" />}
-              {!minimal && section.label && (
-                <p className="mb-1 px-6 text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
-                  {section.label}
-                </p>
-              )}
-              <div className="space-y-1">
-                {links.map((link) => (
-                  <NavItem link={link} key={link.href} />
-                ))}
-              </div>
-            </section>
+            <AdminSection key={section.label ?? links[0].href} label={section.label} links={links} showDivider={minimal && sectionIndex > 0} minimal={minimal} />
           );
         })}
       </div>
