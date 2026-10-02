@@ -90,9 +90,9 @@ export function AdminNav({ className }: { className?: string }) {
           return (
             // The first section has no label, so fall back to its first href for a stable key.
             <section key={section.label ?? links[0].href}>
-              {minimal && sectionIndex > 0 && <hr className="mx-3 mb-3 border-neutral-200/70" />}
+              {minimal && sectionIndex > 0 && <hr className="mx-6 mb-3 border-neutral-200/70" />}
               {!minimal && section.label && (
-                <p className="mb-1 px-3 text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
+                <p className="mb-1 px-6 text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
                   {section.label}
                 </p>
               )}

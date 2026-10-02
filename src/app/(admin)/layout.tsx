@@ -50,7 +50,7 @@ export default function DashboardLayout({
           <ShortcutsProvider>
           <div className="grid h-dvh grid-cols-[minmax(0,1fr)] md:grid-cols-[var(--sidebar-width)_minmax(0,1fr)] overflow-hidden bg-[#f6f8fc] transition-[grid-template-columns]" style={{ transitionDuration: "var(--sidebar-transition-duration)" }}>
             <SidebarAside>
-              <div className="h-full px-3 pt-4 pb-3">
+              <div className="h-full">
                 <AdminNav />
               </div>
               <SidebarResizeBoundary />

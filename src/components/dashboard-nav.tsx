@@ -176,12 +176,12 @@ export function DashboardNav({ className }: { className?: string }) {
       {linksWithCounts.map((link, i) => (
         <Fragment key={`nav-${link.href || i}`}>
           <NavItem link={link} />
-          {minimal && i === 0 && <hr className="mx-3 my-2 border-neutral-200/70" />}
+          {minimal && i === 0 && <hr className="mx-6 my-2 border-neutral-200/70" />}
         </Fragment>
       ))}
-      {minimal && <hr className="mx-3 my-2 border-neutral-200/70" />}
+      {minimal && <hr className="mx-6 my-2 border-neutral-200/70" />}
       {!minimal && (
-        <div className="mt-2 flex h-8 items-center justify-between px-3">
+        <div className="mt-2 flex h-8 items-center justify-between px-6">
           <span className="font-medium tracking-wide text-neutral-900 text-sm max-md:text-base">
             Folders
           </span>
@@ -253,7 +253,7 @@ export function DashboardNav({ className }: { className?: string }) {
         </div>
       )}
       {!minimal && folders.length === 0 && (
-        <div className="mx-3 rounded-lg border border-dashed border-neutral-200 px-3 py-3 text-xs text-neutral-400">
+        <div className="mx-6 rounded-lg border border-dashed border-neutral-200 px-3 py-3 text-xs text-neutral-400">
           No folders yet
         </div>
       )}

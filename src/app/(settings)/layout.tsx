@@ -28,7 +28,7 @@ export default function DashboardLayout({
           <MailSearchProvider>
             <ShortcutsProvider>
             <div className="grid h-[100dvh] grid-cols-[minmax(0,1fr)] md:grid-cols-[var(--sidebar-width)_minmax(0,1fr)] overflow-hidden bg-[#f6f8fc] transition-[grid-template-columns]" style={{ transitionDuration: "var(--sidebar-transition-duration)" }}>
-              <SidebarAside className="px-3 pt-4 pb-3">
+              <SidebarAside>
                 <DashboardNav />
               </SidebarAside>
               <div className="flex min-h-0 min-w-0 flex-col">

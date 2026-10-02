@@ -79,7 +79,7 @@ export function NavItem({ link, iconClassName, labelClassName, wrap }: Props) {
       <button
         type="button"
         onClick={openComposer}
-        className={classes}
+        className={cn(!minimal && "ml-3", classes)}
         aria-label={minimal ? link.label : undefined}
         {...dropProps}
       >
@@ -142,7 +142,7 @@ export function NavItem({ link, iconClassName, labelClassName, wrap }: Props) {
       href={link.href}
       onClick={navigate}
       aria-label={minimal ? link.label : undefined}
-      className={cn(!minimal && "-ml-3 pl-6", classes)}
+      className={cn(!minimal && "pl-6", classes)}
       {...dropProps}
     >
       <Icon
