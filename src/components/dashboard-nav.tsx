@@ -260,6 +260,7 @@ export function DashboardNav({ className }: { className?: string }) {
       {folders.map((folder) => (
         <NavItem
           key={folder.id}
+          wrap
           link={{
             href: `/folders/${folder.id}`,
             label: folder.name,

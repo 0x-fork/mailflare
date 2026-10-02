@@ -1,11 +1,14 @@
 "use client";
 
-import { Archive, Mail, MailOpen, ShieldAlert, Trash2, X } from "lucide-react";
+import { Archive, Mail, MailOpen, MoreVertical, ShieldAlert, Trash2, X } from "lucide-react";
+import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { Tooltip } from "@/components/ui/tooltip";
 import type { BulkMessageAction } from "@/app/api/messages/bulk/types";
 import type { BulkMessageToolbarProps } from "./types";
+
+const menuItemClass = "flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-sm text-neutral-700 outline-none data-[disabled]:opacity-50 data-[highlighted]:bg-neutral-100";
 
 export function BulkMessageToolbar({
 	selectedCount,
@@ -22,12 +25,13 @@ export function BulkMessageToolbar({
 					{selectedCount} selected
 				</span>
 			)}
-			<Tooltip label="Archive">
+			<span className="flex-1 md:hidden" />
+			<Tooltip label="Archive" className="max-md:hidden">
 				<Button variant="ghost" size="sm" onClick={() => onAction("archive")} disabled={pending} aria-label="Archive">
 					<Archive className="h-4 w-4" />
 				</Button>
 			</Tooltip>
-			<Tooltip label="Report spam">
+			<Tooltip label="Report spam" className="max-md:hidden">
 				<Button variant="ghost" size="sm" onClick={() => onAction("spam")} disabled={pending} aria-label="Report spam">
 					<ShieldAlert className="h-4 w-4" />
 				</Button>
@@ -48,8 +52,8 @@ export function BulkMessageToolbar({
 					{hasUnreadSelection ? <MailOpen className="h-4 w-4" /> : <Mail className="h-4 w-4" />}
 				</Button>
 			</Tooltip>
-			<span className="flex-1" />
-			<Tooltip label="Move selected messages">
+			<span className="flex-1 max-md:hidden" />
+			<Tooltip label="Move selected messages" className="max-md:hidden">
 					<Select
 						className="bg-white text-xs font-medium py-2 text-neutral-700 outline-none"
 						disabled={pending}
@@ -67,11 +71,26 @@ export function BulkMessageToolbar({
 						<option value="trash">Trash</option>
 					</Select>
 			</Tooltip>
-			<Tooltip label="Clear selection">
+			<Tooltip label="Clear selection" className="max-md:hidden">
 				<Button variant="ghost" size="sm" onClick={onClearSelection} disabled={pending} aria-label="Clear selection">
 					<X className="h-4 w-4" />
 				</Button>
 			</Tooltip>
+			<DropdownMenu.Root>
+				<DropdownMenu.Trigger asChild>
+					<Button variant="ghost" size="sm" className="md:hidden" disabled={pending} aria-label="More actions">
+						<MoreVertical className="h-4 w-4" />
+					</Button>
+				</DropdownMenu.Trigger>
+				<DropdownMenu.Portal>
+					<DropdownMenu.Content align="end" sideOffset={4} className="z-[130] min-w-44 rounded-xl border border-neutral-200 bg-white p-1 shadow-xl md:hidden">
+						<DropdownMenu.Item className={menuItemClass} onSelect={() => onAction("archive")}><Archive className="h-4 w-4" />Archive</DropdownMenu.Item>
+						<DropdownMenu.Item className={menuItemClass} onSelect={() => onAction("spam")}><ShieldAlert className="h-4 w-4" />Report spam</DropdownMenu.Item>
+						<DropdownMenu.Separator className="my-1 h-px bg-neutral-100" />
+						<DropdownMenu.Item className={menuItemClass} onSelect={onClearSelection}><X className="h-4 w-4" />Clear selection</DropdownMenu.Item>
+					</DropdownMenu.Content>
+				</DropdownMenu.Portal>
+			</DropdownMenu.Root>
 		</div>
 	);
 }

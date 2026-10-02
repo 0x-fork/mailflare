@@ -7,11 +7,14 @@ export type SidebarState = {
 	toggle(): void;
 	setWidth(width: number): void;
 	setForcedMinimal(minimal: boolean): void;
+	mobile: boolean;
+	mobileOpen: boolean;
 };
 
 export type SidebarProviderProps = {
 	children: ReactNode;
 	expandedWidth?: number;
+	mobileOverlay?: boolean;
 };
 
 export type SidebarHeaderProps = {

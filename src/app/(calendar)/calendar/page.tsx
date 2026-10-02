@@ -5,7 +5,9 @@ import Link from "next/link";
 import type { PointerEvent as ReactPointerEvent } from "react";
 import { createPortal } from "react-dom";
 import toast, { Toaster } from "react-hot-toast";
-import { AlignLeft, CalendarPlus2, ChevronDown, ChevronLeft, ChevronRight, Clock3, MapPin, Palette, Plus, Repeat2, Trash2, UsersRound, X } from "lucide-react";
+import { AlignLeft, CalendarPlus2, Check, ChevronDown, ChevronLeft, ChevronRight, Clock3, MapPin, MoreVertical, Palette, Plus, Repeat2, Trash2, UsersRound, X } from "lucide-react";
+import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
+import { mobilePrimaryActionClass } from "@/components/page-header-utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -62,7 +64,8 @@ export default function CalendarPage() {
   const [editing, setEditing] = useState<CalendarEvent | null>(null);
   const [pendingAction, setPendingAction] = useState<"save" | string | null>(null);
   const { selectedMailbox } = useSelectedMailbox();
-  const { minimal } = useSidebar();
+  const { minimal: sidebarMinimal, mobile } = useSidebar();
+  const minimal = sidebarMinimal || mobile;
 
   const now = new Date(currentTime);
   const todayTime = startOfDay(now).getTime();
@@ -345,17 +348,17 @@ export default function CalendarPage() {
   }
 
   return (
-    <div className={clsx("flex h-full min-h-0 flex-col bg-[#f6f8fc] pl-3 lg:flex-row transition-[gap] duration-200 ease-in-out motion-reduce:transition-none", minimal ? "gap-0" : "gap-3")}>
+    <div className={clsx("flex h-full min-h-0 flex-col bg-[#f6f8fc] pl-3 max-md:pl-0 lg:flex-row transition-[gap] duration-200 ease-in-out motion-reduce:transition-none", minimal ? "gap-0" : "gap-3")}>
       <Toaster position="bottom-right" />
       {loading && <RouteLoadingBar />}
       {headerTarget && createPortal(
-        <div className="flex min-w-0 flex-1 items-center justify-between gap-3">
+        <div className="flex min-w-0 flex-1 items-center justify-between gap-3 ">
           <div className="flex shrink-0 items-center gap-2">
           <div ref={monthPickerRef} className="relative shrink-0">
             <button type="button" onClick={() => {
               setPickerMonth(startOfMonth(visibleDate));
               setMonthPickerOpen((open) => !open);
-            }} className="flex items-center gap-2 whitespace-nowrap text-lg font-semibold text-neutral-900" aria-haspopup="dialog" aria-expanded={monthPickerOpen}>
+            }} className="flex items-center gap-2 whitespace-nowrap text-lg font-semibold text-neutral-900 max-md:text-base max-md:font-medium" aria-haspopup="dialog" aria-expanded={monthPickerOpen}>
               {formatUserDate(visibleDate, { month: "long", year: "numeric" })}
               <ChevronDown className="h-5 w-5 text-neutral-500" />
             </button>
@@ -399,15 +402,27 @@ export default function CalendarPage() {
           <div className="flex shrink-0 items-center gap-1.5">
             <button type="button" aria-label={`Previous ${view}`} onClick={() => setVisibleDate(addDays(visibleDate, view === "week" ? -7 : -1))} className="flex h-10 w-10 items-center justify-center rounded-full text-neutral-600 hover:bg-white"><ChevronLeft className="h-6 w-6" /></button>
             <button type="button" aria-label={`Next ${view}`} onClick={() => setVisibleDate(addDays(visibleDate, view === "week" ? 7 : 1))} className="flex h-10 w-10 items-center justify-center rounded-full text-neutral-600 hover:bg-white"><ChevronRight className="h-6 w-6" /></button>
-            <button type="button" onClick={() => setVisibleDate(new Date())} className="h-10 rounded-full bg-white px-4 text-sm font-medium text-neutral-700 hover:bg-neutral-50">Today</button>
-            <div className="relative">
+            <button type="button" onClick={() => setVisibleDate(new Date())} className="h-10 rounded-full max-md:hidden bg-white px-4 text-sm font-medium text-neutral-700 hover:bg-neutral-50">Today</button>
+            <DropdownMenu.Root>
+              <DropdownMenu.Trigger asChild>
+                <button type="button" aria-label="Calendar options" className="flex h-10 w-10 items-center justify-center rounded-full text-neutral-600 hover:bg-white md:hidden"><MoreVertical className="h-5 w-5" /></button>
+              </DropdownMenu.Trigger>
+              <DropdownMenu.Portal>
+                <DropdownMenu.Content align="end" sideOffset={4} className="z-[130] min-w-40 rounded-xl border border-neutral-200 bg-white p-1 text-sm shadow-xl md:hidden">
+                  <DropdownMenu.Item onSelect={() => setVisibleDate(new Date())} className="cursor-pointer rounded-lg px-3 py-2 text-neutral-700 outline-none data-[highlighted]:bg-neutral-100">Today</DropdownMenu.Item>
+                  <DropdownMenu.Separator className="my-1 h-px bg-neutral-100" />
+                  {(["week", "day"] as const).map((option) => <DropdownMenu.Item key={option} onSelect={() => setView(option)} className="flex cursor-pointer items-center justify-between gap-3 rounded-lg px-3 py-2 text-neutral-700 outline-none data-[highlighted]:bg-neutral-100">{option === "week" ? "Week" : "Day"}{view === option && <Check className="h-4 w-4 text-blue-600" />}</DropdownMenu.Item>)}
+                </DropdownMenu.Content>
+              </DropdownMenu.Portal>
+            </DropdownMenu.Root>
+            <div className="relative max-md:hidden">
               <select value={view} onChange={(event) => setView(event.target.value as CalendarView)} aria-label="Calendar view" className="h-10 appearance-none rounded-full border-0 bg-white pl-4 pr-10 text-sm font-medium text-neutral-700 hover:bg-neutral-50">
                 <option value="week">Week</option>
                 <option value="day">Day</option>
               </select>
               <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-5 w-5 -translate-y-1/2 text-neutral-600" />
             </div>
-            <Button disabled={pendingAction !== null} onClick={() => openNewEvent()} className="ml-1 h-10 rounded-full bg-blue-600 px-4 text-white hover:bg-blue-500"><Plus className="h-5 w-5" />New event</Button>
+            <Button disabled={pendingAction !== null} onClick={() => openNewEvent()} className={clsx("ml-1 max-md:ml-0 h-10 rounded-full bg-blue-600 px-4 text-white hover:bg-blue-500", mobilePrimaryActionClass)}><Plus className="h-5 w-5" />New event</Button>
           </div>
         </div>,
         headerTarget,

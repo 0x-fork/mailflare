@@ -12,7 +12,8 @@ import { addDays, expandCalendarEvents, formatEventRange, groupUpcomingEvents, s
 import type { UpcomingSidebarProps } from "./upcoming-sidebar-types";
 
 export function UpcomingSidebar({ events, onSelect }: UpcomingSidebarProps) {
-	const { minimal } = useSidebar();
+	const { minimal: sidebarMinimal, mobile } = useSidebar();
+	const minimal = sidebarMinimal || mobile;
 	const router = useRouter();
 	const [loadedEvents, setLoadedEvents] = useState<CalendarEvent[]>([]);
 	const [loadError, setLoadError] = useState(false);
