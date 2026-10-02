@@ -21,6 +21,7 @@ export default function LicensesPage() {
           during the first year.
         </p>
       </div>
+      <LicenseActivation>
       <div className="grid gap-4 md:grid-cols-2">
         {LICENSE_PLANS.map((plan) => {
           const Icon = plan.icon;
@@ -75,7 +76,7 @@ export default function LicensesPage() {
           );
         })}
       </div>
-      <LicenseActivation />
+      </LicenseActivation>
     </div>
   );
 }

@@ -20,6 +20,7 @@ import { NavItem } from "./components-nav";
 import { SidebarFooter } from "./sidebar-footer";
 import { useBranding } from "./branding-provider";
 import { SidebarHeader } from "./sidebar-header";
+import { SidebarScaffold } from "./sidebar-scaffold";
 import { useSidebar } from "./sidebar-state";
 
 type AdminLinkPermission = "primary" | "domains" | "users";
@@ -80,8 +81,7 @@ export function AdminNav({ className }: { className?: string }) {
   }
 
   return (
-    <nav className={cn("flex min-h-full flex-col gap-1", className)}>
-      <SidebarHeader href="/inbox" label="Admin" />
+    <SidebarScaffold className={className} header={<SidebarHeader href="/inbox" label="Admin" />} footer={<SidebarFooter />}>
       <div className={cn("space-y-4", minimal && "space-y-2 pl-1")}>
         {sections.map((section, sectionIndex) => {
           const links = section.links.filter(canSee);
@@ -105,8 +105,6 @@ export function AdminNav({ className }: { className?: string }) {
           );
         })}
       </div>
-      <span className="flex-1" />
-      <SidebarFooter />
-    </nav>
+    </SidebarScaffold>
   );
 }

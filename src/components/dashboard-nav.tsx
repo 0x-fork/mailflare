@@ -46,6 +46,7 @@ import {
 } from "./dashboard-nav-utils";
 import { SidebarFooter } from "./sidebar-footer";
 import { SidebarHeader } from "./sidebar-header";
+import { SidebarScaffold } from "./sidebar-scaffold";
 import { useSidebar } from "./sidebar-state";
 
 const links = [
@@ -171,8 +172,7 @@ export function DashboardNav({ className }: { className?: string }) {
   }
 
   return (
-    <nav className={cn("flex min-h-full flex-col gap-1", className)}>
-      <SidebarHeader href="/inbox" />
+    <SidebarScaffold className={className} header={<SidebarHeader href="/inbox" />} footer={<SidebarFooter />}>
       {linksWithCounts.map((link, i) => (
         <Fragment key={`nav-${link.href || i}`}>
           <NavItem link={link} />
@@ -273,8 +273,6 @@ export function DashboardNav({ className }: { className?: string }) {
           }}
         />
       ))}
-      <span className="flex-1" />
-      <SidebarFooter />
-    </nav>
+    </SidebarScaffold>
   );
 }
