@@ -164,8 +164,8 @@ export function DashboardNav({ className }: { className?: string }) {
   const composeLink = linksWithCounts.find((link) => link.href === "/compose");
   const mainLinks = linksWithCounts.filter((link) => link.href !== "/compose" && !MORE_LINK_HREFS.includes(link.href!));
   const moreLinks = linksWithCounts.filter((link) => MORE_LINK_HREFS.includes(link.href!));
-  // The icon rail has no room for text toggles, and a page you are on must stay visible.
-  const showMoreLinks = minimal || moreOpen || moreLinks.some((link) => isActiveHref(link.href!));
+  // The icon rail has no room for text toggles. When collapsed, the page you are on stays listed on its own.
+  const showAllMoreLinks = minimal || moreOpen;
   const foldersOverflow = !minimal && folders.length > MAX_VISIBLE_FOLDERS;
 
   useEffect(() => {
@@ -231,8 +231,8 @@ export function DashboardNav({ className }: { className?: string }) {
           { id: "main", items: mainLinks.map((link) => ({ id: link.href!, node: <NavItem link={link} /> })) },
           {
             id: "more",
-            before: minimal ? undefined : <NavToggle expanded={showMoreLinks} onClick={toggleMore} />,
-            hidden: !showMoreLinks,
+            before: minimal ? undefined : <NavToggle expanded={moreOpen} onClick={toggleMore} />,
+            visibleIds: (ordered) => showAllMoreLinks ? ordered : ordered.filter((id) => isActiveHref(id)),
             items: moreLinks.map((link) => ({ id: link.href!, node: <NavItem link={link} /> })),
           },
         ]}

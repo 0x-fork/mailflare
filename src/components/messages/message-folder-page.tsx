@@ -364,7 +364,7 @@ export function MessageFolderPage({
 		});
 	}
 
-	async function runSelectedAction(action: BulkMessageAction) {
+	async function runSelectedAction(action: BulkMessageAction, folderId?: string) {
 		if (selectedIds.length === 0) return;
 
 		setPendingBulkAction(true);
@@ -384,7 +384,7 @@ export function MessageFolderPage({
 			if (inboxUnreadDelta) dispatchMessageCountsDelta({ inboxUnreadDelta });
 		}
 		try {
-			await runBulkMessageAction(expandSelectedIds(selectedIds), action);
+			await runBulkMessageAction(expandSelectedIds(selectedIds), action, true, folderId);
 			setSelectedMessages([]);
 		} catch (error) {
 			if (readValue !== null) {
@@ -420,6 +420,7 @@ export function MessageFolderPage({
 							onAction={runSelectedAction}
 							onClearSelection={() => setSelectedMessages([])}
 							pending={pendingBulkAction}
+							folder={config.folderId ? undefined : config.folder}
 						/>
 					) : (
 						compact && (
