@@ -1,8 +1,8 @@
 "use client";
 
-import { Fragment, useEffect, useMemo, useRef, useState } from "react";
-import Link from "next/link";
-import type { PointerEvent as ReactPointerEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import type { DragEvent, PointerEvent as ReactPointerEvent } from "react";
 import { createPortal } from "react-dom";
 import toast, { Toaster } from "react-hot-toast";
 import { AlignLeft, CalendarPlus2, Check, ChevronDown, ChevronLeft, ChevronRight, Clock3, MapPin, MoreVertical, Palette, Plus, Repeat2, Trash2, UsersRound, X } from "lucide-react";
@@ -21,6 +21,7 @@ import type { CalendarRepeat } from "@/lib/calendar/types";
 import { useSelectedMailbox } from "@/components/mailbox-provider";
 import { useSidebar } from "@/components/sidebar-state";
 import { UpcomingSidebar } from "../upcoming-sidebar";
+import { DayEvents } from "./day-events";
 import type { CalendarEvent, CalendarView, EventDragPreview, EventResizeEdge, EventResizeSession } from "./types";
 import {
   addDays, addMonths, calendarAnchorDay, CALENDAR_END_HOUR, CALENDAR_HOUR_HEIGHT, CALENDAR_START_HOUR,
@@ -42,6 +43,8 @@ export default function CalendarPage() {
   const [monthPickerOpen, setMonthPickerOpen] = useState(false);
   const [pickerMonth, setPickerMonth] = useState(() => new Date());
   const monthPickerRef = useRef<HTMLDivElement | null>(null);
+  const monthPickerPopupRef = useRef<HTMLDivElement | null>(null);
+  const [monthPickerPos, setMonthPickerPos] = useState<{ top: number; left: number } | null>(null);
   const openedEventFromUrl = useRef<string | null>(null);
   const [headerTarget, setHeaderTarget] = useState<HTMLElement | null>(null);
   const [draggedEvent, setDraggedEvent] = useState<CalendarEvent | null>(null);
@@ -63,6 +66,8 @@ export default function CalendarPage() {
   const [description, setDescription] = useState("");
   const [editing, setEditing] = useState<CalendarEvent | null>(null);
   const [pendingAction, setPendingAction] = useState<"save" | string | null>(null);
+  const router = useRouter();
+  const eventFromUrl = useSearchParams().get("event");
   const { selectedMailbox } = useSelectedMailbox();
   const { minimal: sidebarMinimal, mobile } = useSidebar();
   const minimal = sidebarMinimal || mobile;
@@ -99,7 +104,8 @@ export default function CalendarPage() {
   useEffect(() => {
     if (!monthPickerOpen) return;
     const closeOnOutsidePointer = (event: PointerEvent) => {
-      if (!monthPickerRef.current?.contains(event.target as Node)) setMonthPickerOpen(false);
+      const target = event.target as Node;
+      if (!monthPickerRef.current?.contains(target) && !monthPickerPopupRef.current?.contains(target)) setMonthPickerOpen(false);
     };
     const closeOnEscape = (event: KeyboardEvent) => {
       if (event.key === "Escape") setMonthPickerOpen(false);
@@ -129,13 +135,15 @@ export default function CalendarPage() {
   }, [today, visibleDate, weekStart, eventsVersion]);
 
   useEffect(() => {
-    const eventFromUrl = new URLSearchParams(window.location.search).get("event");
-    if (!eventFromUrl || openedEventFromUrl.current === eventFromUrl) return;
+    if (!eventFromUrl) { openedEventFromUrl.current = null; return; }
+    if (openedEventFromUrl.current === eventFromUrl) return;
     const event = events.find((item) => item.id === eventFromUrl);
     if (!event) return;
     openedEventFromUrl.current = eventFromUrl;
     editEvent(event);
-  }, [events]);
+    // Drop the param so picking the same event again re-opens it.
+    router.replace("/calendar");
+  }, [events, eventFromUrl]);
 
   function openNewEvent(day = visibleDate, startAt?: Date) {
     const start = startAt ? new Date(startAt) : defaultCalendarStart(day);
@@ -245,6 +253,12 @@ export default function CalendarPage() {
       return;
     }
     setPendingAction(event.id);
+    // Non-recurring events move in place right away; the refetch below confirms.
+    const previousEvents = event.repeat === "none" ? events : null;
+    if (previousEvents) {
+      setEvents((current) => current.map((item) => item.id === event.id ? { ...item, startsAt: startsAt.toISOString(), endsAt: endsAt.toISOString() } : item));
+    }
+    let saved = false;
     try {
       const movingToPast = event.repeat !== "none" && startsAt.getTime() < Date.now();
       const effectiveFrom = event.repeat !== "none" && !movingToPast ? new Date() : null;
@@ -283,10 +297,12 @@ export default function CalendarPage() {
         toast.error("Could not update the event time. Please try again.");
         return;
       }
+      saved = true;
       setEventsVersion((version) => version + 1);
     } catch {
       toast.error("Could not update the event time. Please try again.");
     } finally {
+      if (previousEvents && !saved) setEvents(previousEvents);
       setDraggedEvent(null);
       setResizingEvent(null);
       setDragPreview(null);
@@ -318,12 +334,10 @@ export default function CalendarPage() {
     if (Math.abs(pointerEvent.clientY - session.pointerY) < 3) return;
     session.moved = true;
     const times = resizeEventTimes(session.event, session.day, session.edge, pointerEvent.clientY - session.columnTop);
-    setDragPreview({
-      eventId: session.event.id,
-      day: session.day,
-      startsAt: times.startsAt,
-      endsAt: times.endsAt,
-    });
+    // Times snap to 15 minutes, so most pointer moves change nothing.
+    setDragPreview((current) => current && current.startsAt.getTime() === times.startsAt.getTime() && current.endsAt.getTime() === times.endsAt.getTime()
+      ? current
+      : { eventId: session.event.id, day: session.day, startsAt: times.startsAt, endsAt: times.endsAt });
   }
 
   function finishResize(pointerEvent: ReactPointerEvent<HTMLButtonElement>) {
@@ -347,6 +361,23 @@ export default function CalendarPage() {
     setDragPreview(null);
   }
 
+  const handlers = useRef({ editEvent, startResize, updateResize, finishResize, cancelResize });
+  handlers.current = { editEvent, startResize, updateResize, finishResize, cancelResize };
+  const onEditEvent = useCallback((event: CalendarEvent) => handlers.current.editEvent(event), []);
+  const onResizeStart = useCallback((pointerEvent: ReactPointerEvent<HTMLButtonElement>, event: CalendarEvent, day: Date, edge: EventResizeEdge) => handlers.current.startResize(pointerEvent, event, day, edge), []);
+  const onResizeMove = useCallback((pointerEvent: ReactPointerEvent<HTMLButtonElement>) => handlers.current.updateResize(pointerEvent), []);
+  const onResizeEnd = useCallback((pointerEvent: ReactPointerEvent<HTMLButtonElement>) => handlers.current.finishResize(pointerEvent), []);
+  const onResizeCancel = useCallback(() => handlers.current.cancelResize(), []);
+  const onEventDragStart = useCallback((dragEvent: DragEvent<HTMLButtonElement>, event: CalendarEvent) => {
+    dragOffsetPixels.current = dragEvent.clientY - dragEvent.currentTarget.getBoundingClientRect().top;
+    dragEvent.dataTransfer.setData("text/plain", event.id);
+    dragEvent.dataTransfer.effectAllowed = "move";
+    setDraggedEvent(event);
+  }, []);
+  const onEventDragEnd = useCallback(() => { setDraggedEvent(null); setDragPreview(null); }, []);
+  const busy = pendingAction !== null;
+  const activeEventId = draggedEvent?.id ?? resizingEvent?.id ?? null;
+
   return (
     <div className={clsx("flex h-full min-h-0 flex-col bg-[#f6f8fc] pl-3 max-md:pl-0 lg:flex-row transition-[gap] duration-200 ease-in-out motion-reduce:transition-none", minimal ? "gap-0" : "gap-3")}>
       <Toaster position="bottom-right" />
@@ -355,15 +386,17 @@ export default function CalendarPage() {
         <div className="flex min-w-0 flex-1 items-center justify-between gap-3 ">
           <div className="flex shrink-0 items-center gap-2">
           <div ref={monthPickerRef} className="relative shrink-0">
-            <button type="button" onClick={() => {
+            <button type="button" onClick={(event) => {
+              const rect = event.currentTarget.getBoundingClientRect();
+              setMonthPickerPos({ top: rect.bottom + 12, left: Math.max(12, Math.min(rect.left, window.innerWidth - 460)) });
               setPickerMonth(startOfMonth(visibleDate));
               setMonthPickerOpen((open) => !open);
             }} className="flex items-center gap-2 whitespace-nowrap text-lg font-semibold text-neutral-900 max-md:text-base max-md:font-medium" aria-haspopup="dialog" aria-expanded={monthPickerOpen}>
               {formatUserDate(visibleDate, { month: "long", year: "numeric" })}
               <ChevronDown className="h-5 w-5 text-neutral-500" />
             </button>
-            {monthPickerOpen && (
-              <div role="dialog" aria-label="Choose a calendar date" className="absolute left-0 top-full z-50 mt-3 w-[448px] max-w-[calc(100vw-24px)] rounded-2xl bg-[#f7f9fc] p-5 shadow-xl ring-1 ring-neutral-200/70">
+            {monthPickerOpen && monthPickerPos && createPortal(
+              <div ref={monthPickerPopupRef} role="dialog" aria-label="Choose a calendar date" style={monthPickerPos} className="fixed z-50 w-[448px] max-w-[calc(100vw-24px)] rounded-2xl bg-[#f7f9fc] p-5 shadow-xl ring-1 ring-neutral-200/70">
                 <div className="mb-4 flex items-center justify-between gap-3">
                   <h2 className="text-xl font-semibold text-neutral-900">
                     {formatUserDate(pickerMonth, { month: "long", year: "numeric" })}
@@ -395,7 +428,8 @@ export default function CalendarPage() {
                     );
                   })}
                 </div>
-              </div>
+              </div>,
+              document.body,
             )}
           </div>
           </div>
@@ -466,39 +500,9 @@ export default function CalendarPage() {
                 }}
                 style={{ backgroundImage: "linear-gradient(to bottom, transparent calc(100% - 1px), var(--color-neutral-100) calc(100% - 1px))", backgroundSize: `100% ${CALENDAR_HOUR_HEIGHT}px` }}>
                 <button type="button" aria-label={`Add event on ${formatUserDate(day, { dateStyle: "short" })}`} onClick={(event) => openNewEvent(day, dropStartForPosition(day, event.nativeEvent.offsetY))} className="absolute inset-0 z-0 cursor-crosshair" />
-                {events.filter((event) => new Date(event.startsAt) < addDays(day, 1) && new Date(event.endsAt) > day).map((event) => {
-                  const position = eventPosition(event, day);
-                  if (!position) return null;
-                  const eventColor = normalizeCalendarColor(event.color);
-                  const isPastEvent = new Date(event.endsAt).getTime() <= currentTime;
-                  const canResizeStart = dateKey(new Date(event.startsAt)) === dateKey(day);
-                  const canResizeEnd = new Date(event.endsAt).getTime() <= addDays(day, 1).getTime();
-                  return (
-                    <Fragment key={event.id}>
-                      <button type="button" draggable={pendingAction === null} onClick={() => editEvent(event)}
-                        onDragStart={(dragEvent) => { dragOffsetPixels.current = dragEvent.clientY - dragEvent.currentTarget.getBoundingClientRect().top; dragEvent.dataTransfer.setData("text/plain", event.id); dragEvent.dataTransfer.effectAllowed = "move"; setDraggedEvent(event); }}
-                        onDragEnd={() => { setDraggedEvent(null); setDragPreview(null); }}
-                        title={`${event.title} · ${formatEventRange(event)}`}
-                        className={`absolute left-1 right-1 z-10 flex cursor-move flex-col items-start justify-start overflow-hidden rounded-lg pr-2 pl-4 text-left hover:brightness-95 ${isPastEvent ? PAST_EVENT_COLOR_CLASSES[eventColor] : EVENT_COLOR_CLASSES[eventColor]} ${position.height >= 20 ? "py-1.5" : "py-0"} ${draggedEvent?.id === event.id || resizingEvent?.id === event.id ? "opacity-40" : ""}`}
-                        style={{ top: position.top, height: position.height }}>
-                          <span className="absolute top-1 left-1 block h-[calc(100%-8px)] w-1 rounded-xl bg-current" />
-                        {position.height >= 15 && <span className="block w-full truncate text-[12px] font-semibold leading-4">{event.title}</span>}
-                        {position.height >= 34 && <span className="block w-full truncate text-[11px] leading-4 opacity-70">{formatEventRange(event)}</span>}
-                      </button>
-                      {(["start", "end"] as const).filter((edge) => edge === "start" ? canResizeStart : canResizeEnd).map((edge) => (
-                        <button key={edge} type="button" draggable={false}
-                          aria-label={`Resize ${edge} of ${event.title}`}
-                          onPointerDown={(pointerEvent) => startResize(pointerEvent, event, day, edge)}
-                          onPointerMove={updateResize}
-                          onPointerUp={finishResize}
-                          onPointerCancel={cancelResize}
-                          onClick={(clickEvent) => clickEvent.stopPropagation()}
-                          className={clsx(edge === "start" ? "cursor-n-resize" : "cursor-s-resize", "absolute left-1 right-1 z-20 h-2 touch-none bg-transparent focus-visible:outline-2 focus-visible:outline-blue-500")}
-                          style={{ top: edge === "start" ? position.top - 4 : position.top + position.height - 4 }} />
-                      ))}
-                    </Fragment>
-                  );
-                })}
+                <DayEvents day={day} events={events} currentTime={currentTime} busy={busy} activeEventId={activeEventId}
+                  onEdit={onEditEvent} onDragStart={onEventDragStart} onDragEnd={onEventDragEnd}
+                  onResizeStart={onResizeStart} onResizeMove={onResizeMove} onResizeEnd={onResizeEnd} onResizeCancel={onResizeCancel} />
                 {dragPreview && previewEvent && previewPosition && dateKey(dragPreview.day) === dateKey(day) && (
                   <div className={`pointer-events-none absolute left-1 right-1 z-20 rounded-lg border-2 border-dashed border-white ${new Date(previewEvent.endsAt).getTime() <= currentTime ? PAST_EVENT_COLOR_CLASSES[normalizeCalendarColor(previewEvent.color)] : EVENT_COLOR_CLASSES[normalizeCalendarColor(previewEvent.color)]}`}
                     style={{ top: previewPosition.top, height: previewPosition.height }}>
