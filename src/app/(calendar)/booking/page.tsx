@@ -7,7 +7,7 @@ import clsx from "clsx";
 import { CalendarDays, Check, Clock3, Copy, ExternalLink, MapPin, MoreHorizontal, Plus } from "lucide-react";
 import toast, { Toaster } from "react-hot-toast";
 import { Button } from "@/components/ui/button";
-import { RouteLoadingBar } from "@/components/route-loading-bar";
+import { RouteLoadingBarPortal } from "@/components/route-loading-bar-portal";
 import { authFetch } from "@/lib/auth/client";
 import { getUserTimeZone } from "@/lib/time/utils";
 import { useSidebar } from "@/components/sidebar-state";
@@ -111,7 +111,7 @@ export default function BookingsPage() {
 
 	return <div className={clsx("flex h-full min-h-0 flex-col bg-[#f6f8fc] pl-3 max-md:pl-0 transition-[gap] duration-200 ease-in-out motion-reduce:transition-none lg:flex-row", minimal ? "gap-0" : "gap-3")}>
 		<Toaster position="bottom-right" />
-		{loading && <RouteLoadingBar />}
+		{loading && <RouteLoadingBarPortal />}
 		<UpcomingSidebar />
 		<section className="min-h-0 min-w-0 flex-1 overflow-hidden overscroll-contain max-md:rounded-t-3xl max-md:bg-white">
 			<div className="flex h-full min-h-0 min-w-0">

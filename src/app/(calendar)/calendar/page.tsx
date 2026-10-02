@@ -11,7 +11,7 @@ import { mobilePrimaryActionClass } from "@/components/page-header-utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { RouteLoadingBar } from "@/components/route-loading-bar";
+import { RouteLoadingBarPortal } from "@/components/route-loading-bar-portal";
 import { authFetch } from "@/lib/auth/client";
 import { formatUserDate, getUserTimeZone, parseUserDateTimeLocal } from "@/lib/time/utils";
 import { normalizeCalendarColor } from "@/lib/calendar/colors";
@@ -350,7 +350,7 @@ export default function CalendarPage() {
   return (
     <div className={clsx("flex h-full min-h-0 flex-col bg-[#f6f8fc] pl-3 max-md:pl-0 lg:flex-row transition-[gap] duration-200 ease-in-out motion-reduce:transition-none", minimal ? "gap-0" : "gap-3")}>
       <Toaster position="bottom-right" />
-      {loading && <RouteLoadingBar />}
+      {loading && <RouteLoadingBarPortal />}
       {headerTarget && createPortal(
         <div className="flex min-w-0 flex-1 items-center justify-between gap-3 ">
           <div className="flex shrink-0 items-center gap-2">
