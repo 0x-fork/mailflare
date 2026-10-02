@@ -47,7 +47,7 @@ export function NavItem({ link, iconClassName, labelClassName, wrap }: Props) {
   if (!Icon) return null;
   const active = pathname === link.href || pathname.startsWith(`${link.href}/`);
   const classes = cn(
-    "flex h-9 items-center gap-3 rounded-r-full text-sm font-medium text-neutral-700 transition-colors",
+    "flex h-9 items-center gap-3 rounded-r-full text-sm font-medium text-neutral-700 transition-colors max-md:min-h-11 max-md:text-base",
     minimal && "relative mx-auto w-10 justify-center rounded-full px-0",
     active ? "bg-blue-100 text-blue-900" : "hover:bg-stone-200/60",
     dragOver && "bg-blue-50 text-blue-900 ring-1 ring-blue-200",
@@ -149,9 +149,9 @@ export function NavItem({ link, iconClassName, labelClassName, wrap }: Props) {
         // className={minimal ? "h-4 w-4" : "h-5 w-5"}
         style={{ color: link.iconColor }}
         size={16}
-        className={cn(wrap && !minimal && "mt-0.5 shrink-0", iconClassName)}
+        className={cn("max-md:h-5 max-md:w-5", wrap && !minimal && "mt-0.5 shrink-0", iconClassName)}
       />
-      {!minimal && <span className={cn("flex-1", wrap && "min-w-0 break-words leading-5", labelClassName, typeof link.count === "number" && link.count > 0 && "font-semibold")}>{link.label}</span>}
+      {!minimal && <span className={cn("flex-1", wrap && "min-w-0 break-words leading-5 max-md:leading-6", labelClassName, typeof link.count === "number" && link.count > 0 && "font-semibold")}>{link.label}</span>}
       {!minimal && typeof link.count === "number" && link.count > 0 && (
         <span className={cn("ml-auto mr-3 rounded-full px-2 py-0.5 text-sm font-semibold text-neutral-700", wrap && "shrink-0 py-0 leading-5")}>
           {link.count > 99 ? "99+" : link.count}
