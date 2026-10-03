@@ -56,6 +56,15 @@ certificate on a private network.
 Sending: Edit. The domain must be a Cloudflare zone with Email Sending set
 up; Mailflare calls the REST API, no Workers plan needed.
 
+**Resend or Amazon SES, per domain.** Instead of one global relay, each domain
+can send through Resend or SES with their APIs (no SMTP involved), and receive
+through them too, once Mailflare can manage the domain's DNS with `CF_TOKEN`.
+Add the credentials on the domain page, or set `RESEND_API_KEY` /
+`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` and `AWS_REGION`. Receiving
+through either needs `APP_URL` set to your public HTTPS address. See
+[Sending and receiving providers](providers.md). Using SES as a plain SMTP
+relay through `SMTP_URL`, described above, still works and needs none of this.
+
 ## Cloudflare zone management (optional)
 
 If `CF_TOKEN` can also edit DNS and Email Routing on your zones, adding a
@@ -77,6 +86,8 @@ and the DNS page shows what to set by hand.
 | `SMTP_URL` | unset | Outbound relay |
 | `SMTP_TLS_REJECT_UNAUTHORIZED` | `true` | Trust self-signed relay certificates when `false` |
 | `CF_ACCOUNT_ID`, `CF_TOKEN` | unset | Cloudflare Email Sending, and zone management if the token allows |
+| `RESEND_API_KEY` | unset | Resend key, used when none is saved in the app |
+| `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION` | unset | Amazon SES credentials, used when none are saved in the app |
 | `INBOUND_WEBHOOK_SECRET` | unset | Enables `/api/inbound` for the relay Worker |
 | `TURNSTILE_SECRET_KEY` | unset | Bot protection on login and reset forms (`NEXT_PUBLIC_TURNSTILE_SITE_KEY` at build time) |
 | `AI_BASE_URL` | unset | OpenAI-compatible model API base URL for the assistant |

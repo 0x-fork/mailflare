@@ -2,7 +2,7 @@
 
 # Mailflare
 
-Mailflare is a self-hosted email inbox for custom domains, built on Cloudflare.
+Mailflare is a self-hosted email inbox for custom domains, built on Cloudflare. Receive and send mail with Cloudflare Email Routing and Email Sending, **Resend**, or **Amazon SES**, chosen per domain.
 
 [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/hieunc229/mailflare)
 
@@ -23,7 +23,7 @@ Want to support the mailflare? <a target="_blank" href="https://store.paymug.co/
 
 ## What you can do
 
-- **Domain setup**: Connect domains and set up Cloudflare Email Routing from the dashboard.
+- **Domain setup**: Connect Cloudflare-managed domains and, for each one, choose what receives and what sends its mail: Cloudflare, Resend, or Amazon SES. Mailflare creates the DNS and the provider resources from the dashboard.
 - **Mailboxes**: Create personal and shared mailboxes with delegated access.
 - **Email**: Send and receive email with attachments, rich formatting, signatures, and automatic replies.
 - **Inbox organization**: Organize mail with search, custom folders, stars, snoozing, archive, spam, and trash.
@@ -36,13 +36,13 @@ Want to support the mailflare? <a target="_blank" href="https://store.paymug.co/
 
 ## How it works
 
-Mailflare runs in your Cloudflare account. Email Routing delivers incoming messages to the app, while Cloudflare's email service handles outgoing messages. Your mail data stays in your own D1 database and attachments are stored in your own R2 bucket.
+Mailflare runs in your Cloudflare account. By default Email Routing delivers incoming messages to the app, while Cloudflare's email service handles outgoing messages. Each domain can instead receive through Resend or Amazon SES, send through either, or do both through different providers; Cloudflare keeps managing the domain's DNS. Your mail data stays in your own D1 database and attachments are stored in your own R2 bucket, whichever provider carries it. See [Sending and receiving providers](docs/providers.md).
 
 ## How much does it cost?
 
 You can setup Mailflare and receive email for free
 
-A [Paid Worker](https://developers.cloudflare.com/workers/platform/pricing/) plan ($5/month) is required to send email (and it's recommend to have a smooth experience)
+A [Paid Worker](https://developers.cloudflare.com/workers/platform/pricing/) plan ($5/month) is required to send email with Cloudflare (and it's recommend to have a smooth experience). Sending through Resend or Amazon SES is billed by those services instead.
 
 ## Deploy
 
@@ -50,7 +50,7 @@ Getting started takes three steps:
 
 1. **Deploy the app.** Click **Deploy to Cloudflare** and keep the app name as `mailflare`. The app will not work correctly under another Worker name.
 2. **Complete setup.** Open the deployed app and follow `/setup` to check the installation and create your admin account.
-3. **Connect your domain.** Add a domain managed by the same Cloudflare account. Mailflare configures its email routing and helps you create the first mailbox.
+3. **Connect your domain.** Add a domain managed by the same Cloudflare account and choose which service receives its mail. Mailflare configures Email Routing, or helps you set up Resend or Amazon SES, and helps you create the first mailbox. Add Resend or AWS credentials from the domain page when you want to use them.
 
 ⚠️ IMPORTANT: **`CF_TOKEN` is required during deployment**. Create a scoped [Cloudflare API token with the following permissions](https://github.com/hieunc229/mailflare/issues/24#issuecomment-5523686105) for the domains you want to connect.
 - All accounts - Email Sending:Edit, DNS Settings:Edit, Email Routing Addresses:Edit
@@ -86,7 +86,7 @@ See the [deployment guide](docs/deployment.md) for required permissions, manual 
 
 ### Self-host with Docker instead
 
-Mailflare also runs as one container on any server, with SQLite and local files in place of D1 and R2, a built-in SMTP listener for inbound mail (or a small Cloudflare relay Worker if you want to keep MX on Cloudflare), and any SMTP relay or Cloudflare Email Sending for outbound.
+Mailflare also runs as one container on any server, with SQLite and local files in place of D1 and R2, a built-in SMTP listener for inbound mail (or a small Cloudflare relay Worker if you want to keep MX on Cloudflare), and any SMTP relay, Cloudflare Email Sending, Resend or Amazon SES for outbound.
 
 ```bash
 cp .env.docker.example .env.docker
@@ -113,6 +113,7 @@ The Cloudflare app uses vinext and the Cloudflare Vite plugin, including local D
 ## Documentation
 
 - [Deployment and configuration](docs/deployment.md)
+- [Sending and receiving providers (Cloudflare, Resend, Amazon SES)](docs/providers.md)
 - [API and integrations](docs/api.md)
 - [Email assistant and MCP](docs/email-assistant-and-mcp.md)
 - [Troubleshooting](docs/troubleshooting.md)
