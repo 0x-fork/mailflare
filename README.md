@@ -2,7 +2,7 @@
 
 # Mailflare
 
-Mailflare is a self-hosted email inbox for custom domains, built on Cloudflare. Receive and send mail with Cloudflare Email Routing and Email Sending, **Resend**, or **Amazon SES**, chosen per domain.
+Mailflare is a self-hosted email inbox for custom domains, built on Cloudflare. Supports **Resend**, or **Amazon SES**
 
 [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/hieunc229/mailflare)
 
@@ -26,13 +26,15 @@ Want to support the mailflare? <a target="_blank" href="https://store.paymug.co/
 - **Domain setup**: Connect Cloudflare-managed domains and, for each one, choose what receives and what sends its mail: Cloudflare, Resend, or Amazon SES. Mailflare creates the DNS and the provider resources from the dashboard.
 - **Mailboxes**: Create personal and shared mailboxes with delegated access.
 - **Email**: Send and receive email with attachments, rich formatting, signatures, and automatic replies.
+- **Calendar**: Keep a personal calendar with week and day views, drag-to-move and resize, repeating events, time zones, colors, and attendees. Attendees get an email invitation with a calendar file when you choose a sending mailbox.
+- **Booking pages**: Share a public link (`/book/<username>/<event>`) where anyone can pick a free time, such as a 15 or 30 minute meeting. Mailflare checks your calendar (including repeating events), hides busy times, and adds the booking to your calendar. Team plans can book with several hosts at once and require every host to be free.
 - **Inbox organization**: Organize mail with search, custom folders, stars, snoozing, archive, spam, and trash.
 - **Routing rules**: Create routing rules to store, forward, reject, or categorize incoming messages.
 - **Notifications**: Get real-time inbox updates and new-message notifications.
 - **Mail and contacts**: Import and export mail, manage contacts, and block unwanted senders.
 - **Administration**: Manage accounts, permissions, API keys, webhooks, audit logs, and database backups.
-- **Email AI Assistant**: Use an AI assistant to search mail, work with threads, and prepare drafts for a selected mailbox.
-- **MCP access**: Connect external AI clients through MCP with mailbox or admin permissions chosen for each key.
+- **Email AI Assistant**: Use an AI assistant to search mail, work with threads, and prepare drafts for a selected mailbox, and to look up, create, and change events on your calendar.
+- **MCP access**: Connect external AI clients through MCP with mailbox, calendar, or admin permissions chosen for each key.
 
 ## How it works
 
@@ -40,9 +42,17 @@ Mailflare runs in your Cloudflare account. By default Email Routing delivers inc
 
 ## How much does it cost?
 
-You can setup Mailflare and receive email for free
+**You can set up Mailflare, receive email and send email for free.** Receiving through Cloudflare Email Routing costs nothing, and for sending you can use the free allowance of **Resend** or **Amazon SES** instead of Cloudflare's email sending, which needs a paid Worker plan:
 
-A [Paid Worker](https://developers.cloudflare.com/workers/platform/pricing/) plan ($5/month) is required to send email with Cloudflare (and it's recommend to have a smooth experience). Sending through Resend or Amazon SES is billed by those services instead.
+| Send with | Free allowance | After that |
+| --- | --- | --- |
+| **Resend** | 3,000 emails a month (up to 100 a day) and 3 domains | From $20/month for 50,000 emails |
+| **Amazon SES** | $200 of AWS credits for new accounts (about 2 million emails at SES prices; the free plan lasts 6 months and credits expire after 12) | $0.10 per 1,000 emails |
+| **Cloudflare Email Sending** | None | Needs a [Paid Worker](https://developers.cloudflare.com/workers/platform/pricing/) plan ($5/month) |
+
+Receiving is free with Cloudflare Email Routing, included in every Resend plan, and $0.10 per 1,000 messages with Amazon SES (plus the small S3 and SNS charges for the mail it stores and announces).
+
+New SES accounts start in a sandbox that only delivers to verified addresses until you request production access in the AWS console. Pick the provider per domain, and switch whenever you like (see [Sending and receiving providers](docs/providers.md)). Free allowances and prices are set by those providers and change, so check [Resend](https://resend.com/pricing), [Amazon SES](https://aws.amazon.com/ses/pricing/) and [Cloudflare](https://developers.cloudflare.com/workers/platform/pricing/) before you rely on them.
 
 ## Deploy
 
@@ -114,7 +124,7 @@ The Cloudflare app uses vinext and the Cloudflare Vite plugin, including local D
 
 - [Deployment and configuration](docs/deployment.md)
 - [Sending and receiving providers (Cloudflare, Resend, Amazon SES)](docs/providers.md)
-- [API and integrations](docs/api.md)
+- [API and integrations](docs/api.md), including the [calendar and booking APIs](docs/api.md#calendar-and-booking)
 - [Email assistant and MCP](docs/email-assistant-and-mcp.md)
 - [Troubleshooting](docs/troubleshooting.md)
 

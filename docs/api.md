@@ -49,6 +49,40 @@ Resend and Amazon SES deliver mail by calling the app, so these routes are publi
 | `POST /api/inbound/ses?token=…` | The secret token in the subscription URL, the SNS topic ARN, and reading the message from the account's own S3 bucket |
 | `POST /api/inbound` | The HMAC from the Cloudflare relay Worker, used by self-hosted installs ([self-hosting](self-hosting.md)) |
 
+## Calendar and booking
+
+### Calendar
+
+Each user has a personal calendar at **Calendar** in the dashboard. Events have a title, description, location, attendees, color, time zone and an optional repeat (`daily`, `weekly`, `monthly` or `weekdays`, with an end date and skipped occurrences). Changing or deleting a repeating event affects the whole series unless you choose a starting occurrence.
+
+When you add attendees and choose a sending mailbox, Mailflare emails each attendee an invitation with a calendar (`.ics`) file from that mailbox, and sends updates and cancellations the same way. Events created through MCP tools or the assistant record attendees but do not send invitations.
+
+| Mailflare route | Purpose |
+| --- | --- |
+| `GET /api/calendar/events?start=&end=` | List events in an ISO 8601 range (default: the next 31 days). Repeating events are returned once, with their rule |
+| `POST /api/calendar/events` | Create an event (`{ title, startsAt, endsAt, description?, location?, attendees?, color?, repeat?, repeatDays?, timeZone?, mailboxId?, from? }`) |
+| `PATCH /api/calendar/events/[eventId]` | Update an event or series. For a repeating event, pass an occurrence ID or `effectiveFrom` to change it from that occurrence onward |
+| `DELETE /api/calendar/events/[eventId]` | Delete an event, or a series from an occurrence onward |
+
+These routes accept the dashboard session or an API key (`Authorization: Bearer <key>`) with the **Read calendar** (`calendar:read`) or **Manage calendar** (`calendar:write`) scope, which you choose when creating the key in **Settings → API keys**. A key can only send invitations if it also has the `send` scope for the chosen mailbox. MCP and the assistant use separate calendar tools, described in [Email assistant and MCP](email-assistant-and-mcp.md).
+
+### Booking pages
+
+Open **Booking** to create booking events: a name, link (slug), duration, location, weekdays, one or more daily time ranges, a time zone and an on/off switch. Two disabled templates (15 and 30 minute meetings) are offered to start from. Each user gets a booking username, derived from their email and unique across the instance; an administrator can change it. Booking events are served at `/book/<username>` (the list) and `/book/<username>/<event>` (one event), with no login.
+
+A guest picks a slot, enters a name, email, optional extra guest emails and notes, and the booking is added to the host's calendar with the guest as attendee. Slots come from the host's availability: every 15 minutes inside the allowed ranges, up to 60 days ahead, at least an hour from now, and only where the host's calendar is free, repeating events included. The booking is inserted in one statement that re-checks for conflicts, so two guests cannot take the same slot. Mailflare does not email the guest a confirmation; the booking page confirms on screen.
+
+On a Team license an administrator can add other users as hosts of a booking event. The booking is created on every host's calendar, and a slot is offered only when all hosts are free.
+
+| Mailflare route | Purpose |
+| --- | --- |
+| `GET /api/booking`, `POST /api/booking` | List or create the signed-in user's booking events |
+| `PATCH /api/booking/[eventId]`, `DELETE /api/booking/[eventId]` | Update or delete one |
+| `PATCH /api/booking/settings` | Change the booking username (administrators) |
+| `GET /api/public/booking?username=` | Public: the host's name and enabled events |
+| `GET /api/public/booking/[eventId]?username=` | Public: one event and its open slots |
+| `POST /api/public/booking/[eventId]?username=` | Public: book a slot (`{ name, email, startsAt, guestEmails?, notes? }`) |
+
 ## Account and mailbox management
 
 Admin > API keys can also grant the `accounts` and `mailboxes` scopes independently. These routes use `Authorization: Bearer <key>` and require the key owner to retain the admin role. Account management requires a Team license; creating a shared mailbox also requires a Team license. Each key can access only accounts created by its owner and mailboxes owned by those accounts or the admin.
