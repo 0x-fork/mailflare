@@ -14,7 +14,6 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 import { List } from "@/components/ui/list";
 import { CheckCircle2, LoaderCircle, Plus } from "lucide-react";
 import { authFetch } from "@/lib/auth/client";
@@ -34,7 +33,7 @@ export default function DomainsPage() {
   const managesDns = me?.managesDns ?? true;
   const [domainCheck, setDomainCheck] = useState<DomainPreflight | null>(null);
   const [domainChecking, setDomainChecking] = useState(false);
-  const [enableSending, setEnableSending] = useState(false);
+  const [sendingProvider, setSendingProvider] = useState<SendingProvider>("cloudflare");
   const [receivingProvider, setReceivingProvider] = useState<ReceivingProvider>("cloudflare");
   const [domainCheckError, setDomainCheckError] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
@@ -61,16 +60,13 @@ export default function DomainsPage() {
     mutationFn: async () => {
       const normalized = hostname.toLowerCase().trim();
       let checkedDomain = domainCheck;
-      let sendingRequested = enableSending;
       if (checkedDomain?.hostname !== normalized) {
         const result = await checkDomain(normalized);
         if (!result.ok || !result.domain) {
           throw new Error(result.error ?? "Domain check failed");
         }
         checkedDomain = result.domain;
-        sendingRequested = true;
         setDomainCheck(result.domain);
-        setEnableSending(sendingRequested);
       }
       if (!checkedDomain) throw new Error("Domain check failed");
 
@@ -80,7 +76,7 @@ export default function DomainsPage() {
         body: JSON.stringify({
           hostname: checkedDomain.hostname,
           enableRouting: true,
-          enableSending: sendingRequested,
+          sendingProvider,
           receivingProvider,
         }),
       });
@@ -91,7 +87,7 @@ export default function DomainsPage() {
     onSuccess: () => {
       setHostname("");
       setDomainCheck(null);
-      setEnableSending(false);
+      setSendingProvider("cloudflare");
       setReceivingProvider("cloudflare");
       setDomainCheckError(null);
       setCreateOpen(false);
@@ -253,13 +249,11 @@ export default function DomainsPage() {
     setDomainChecking(false);
     if (!result.ok || !result.domain) {
       setDomainCheck(null);
-      setEnableSending(false);
       setDomainCheckError(result.error ?? "Domain check failed");
       return;
     }
 
     setDomainCheck(result.domain);
-    setEnableSending(true);
   };
 
   return (
@@ -298,7 +292,6 @@ export default function DomainsPage() {
                     setHostname(e.target.value);
                     if (domainCheck?.hostname !== e.target.value.toLowerCase().trim()) {
                       setDomainCheck(null);
-                      setEnableSending(false);
                     }
                   }}
                   onBlur={() => void inspectDomain()}
@@ -330,27 +323,29 @@ export default function DomainsPage() {
               </div>
               <div className="flex items-center justify-between gap-4 rounded-xl bg-neutral-50 px-4 py-3">
                 <div>
-                  <Label htmlFor="enable-sending">Enable sending</Label>
+                  <Label htmlFor="sending-provider">Send mail with</Label>
                   <p className="mt-1 text-xs leading-5 text-neutral-500">
                     {domainChecking
                       ? "Checking Cloudflare access..."
-                      : domainCheck
-                        ? enableSending
-                          ? "Required to send email."
-                          : "Receive-only mode."
-                        : "Enter the domain and leave the field to verify it."}
+                      : sendingProvider === "cloudflare"
+                        ? "Cloudflare Email Sending is enabled on the zone."
+                        : sendingProvider === "none"
+                          ? "Receive-only mode. Add a sending service later."
+                          : "Add your credentials and set it up from the domain page after adding."}
                   </p>
                 </div>
-                {domainChecking ? (
-                  <LoaderCircle className="h-4 w-4 animate-spin text-neutral-500" />
-                ) : (
-                  <Switch
-                    id="enable-sending"
-                    checked={enableSending}
-                    onCheckedChange={setEnableSending}
-                    disabled={!domainCheck}
-                  />
-                )}
+                {domainChecking && <LoaderCircle className="h-4 w-4 shrink-0 animate-spin text-neutral-500" />}
+                <select
+                  id="sending-provider"
+                  value={sendingProvider}
+                  onChange={(e) => setSendingProvider(e.target.value as SendingProvider)}
+                  className="h-9 shrink-0 rounded-md border border-neutral-200 bg-white px-3 text-sm"
+                >
+                  <option value="cloudflare">Cloudflare Email Sending</option>
+                  <option value="resend">Resend</option>
+                  <option value="ses">Amazon SES</option>
+                  <option value="none">Not selected</option>
+                </select>
               </div>
               {domainCheck && (
                 <div className="flex items-center gap-3 rounded-xl bg-green-50 px-4 py-3 text-sm text-green-700">

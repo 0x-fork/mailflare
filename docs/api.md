@@ -31,7 +31,7 @@ The same operations are available to scripts through admin API keys with the `do
 | Mailflare route | Purpose |
 | --- | --- |
 | `GET /api/v1/domains` | List connected domains with their DNS status |
-| `POST /api/v1/domains` | Connect a domain and configure Cloudflare (`{ hostname, enableRouting?, enableSending?, replaceMxRecords?, receivingProvider? }`; `receivingProvider` defaults to `cloudflare`, and with another value Email Routing is not enabled) |
+| `POST /api/v1/domains` | Connect a domain and configure Cloudflare (`{ hostname, enableRouting?, enableSending?, replaceMxRecords?, receivingProvider?, sendingProvider? }`; `receivingProvider` defaults to `cloudflare`, and with another value Email Routing is not enabled. `sendingProvider` defaults to `cloudflare` (or `none` when `enableSending` is `false`), and the Cloudflare sending subdomain is only created for `cloudflare`) |
 | `GET /api/v1/domains/[id]` | Get a connected domain |
 | `DELETE /api/v1/domains/[id]` | Remove a domain and clean up its Cloudflare resources |
 | `GET /api/v1/domains/[id]/dns` | View its routing, sending and authentication DNS status |

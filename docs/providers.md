@@ -15,7 +15,7 @@ Open **Admin → Domains**, expand a domain, and use the **Setup receiving email
 
 ## Choosing at add time
 
-**New domain** asks which service receives the domain's mail. Cloudflare Email Routing is enabled on the zone only when you pick Cloudflare. For Resend or SES the domain is added without touching Email Routing; finish from the domain page once the credentials are in. The same choice is available over the API as `receivingProvider` (see [API](api.md#domain-management)).
+**New domain** asks which service receives the domain's mail (**Receive mail with**) and which sends it (**Send mail with**), each a dropdown of Cloudflare, Resend, Amazon SES or Not selected. Cloudflare Email Routing and the Cloudflare sending subdomain are only enabled on the zone for the Cloudflare choice. For Resend or SES the domain is added without touching either; finish from the domain page once the credentials are in. The same choices are available over the API as `receivingProvider` and `sendingProvider` (see [API](api.md#domain-management)).
 
 ## Resend
 

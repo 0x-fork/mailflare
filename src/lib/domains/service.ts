@@ -40,7 +40,7 @@ export async function addDomainForUser(
 	env: CloudflareEnv,
 	userId: string,
 	hostname: string,
-	options?: { enableRouting?: boolean; enableSending?: boolean; replaceMxRecords?: boolean; receivingProvider?: "none" | "cloudflare" | "resend" | "ses" },
+	options?: { enableRouting?: boolean; enableSending?: boolean; replaceMxRecords?: boolean; receivingProvider?: "none" | "cloudflare" | "resend" | "ses"; sendingProvider?: "none" | "cloudflare" | "resend" | "ses" },
 ): Promise<{
 	domain: typeof domains.$inferSelect;
 	dns: DomainDnsView;
@@ -65,8 +65,11 @@ export async function addDomainForUser(
 	// Email Routing is Cloudflare's way of receiving; another provider brings its own MX,
 	// which its setup in the domain page creates once credentials exist.
 	const receivingProvider = options?.receivingProvider ?? "cloudflare";
+	// Cloudflare's sending subdomain is only provisioned when Cloudflare is the sender.
+	const requestedSending = options?.sendingProvider ?? (options?.enableSending === false ? "none" : "cloudflare");
 	const provisioned = await provisionDomainOnCloudflare(env, hostname, {
 		...options,
+		enableSending: requestedSending === "cloudflare",
 		enableRouting: receivingProvider === "cloudflare" ? (options?.enableRouting ?? true) : false,
 		replaceMxRecords: receivingProvider === "cloudflare" ? options?.replaceMxRecords : false,
 	});
@@ -90,7 +93,7 @@ export async function addDomainForUser(
 			routingStatus: provisioned.routingStatus ?? null,
 			sendingSubdomainTag: provisioned.sendingSubdomainTag,
 			sendingRequested: provisioned.sendingRequested,
-			...(existing && existing.sendingProvider !== "none" ? {} : { sendingProvider: provisioned.sendingRequested ? ("cloudflare" as const) : ("none" as const) }),
+			...(options?.sendingProvider ? { sendingProvider: options.sendingProvider } : existing && existing.sendingProvider !== "none" ? {} : { sendingProvider: provisioned.sendingRequested ? ("cloudflare" as const) : ("none" as const) }),
 			sendingEnabled: provisioned.sendingEnabled,
 			routingEnabled: provisioned.routingEnabled,
 		};

@@ -52,6 +52,7 @@ export async function POST(request: Request) {
 			enableSending: parsed.data.enableSending,
 			replaceMxRecords: parsed.data.replaceMxRecords,
 			receivingProvider: parsed.data.receivingProvider,
+			sendingProvider: parsed.data.sendingProvider,
 		});
 		let dns = result.dns;
 		try {
