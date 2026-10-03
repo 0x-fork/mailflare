@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { SidebarHeader } from "@/components/sidebar-header";
 import { useSidebar } from "@/components/sidebar-state";
 import { UpcomingSidebar } from "./upcoming-sidebar";
 
@@ -12,9 +13,14 @@ export function CalendarMobileUpcoming() {
 	const router = useRouter();
 	if (!mobile) return null;
 	return (
-		<UpcomingSidebar drawer refreshKey={mobileOpen} onSelect={(event) => {
-			toggle();
-			router.push(`/calendar?event=${encodeURIComponent(event.id)}`);
-		}} />
+		<div className="flex h-full min-h-0 flex-col">
+			<div className="shrink-0 px-3 pt-4"><SidebarHeader href="/inbox" /></div>
+			<div className="min-h-0 flex-1">
+				<UpcomingSidebar drawer refreshKey={mobileOpen} onSelect={(event) => {
+					toggle();
+					router.push(`/calendar?event=${encodeURIComponent(event.id)}`);
+				}} />
+			</div>
+		</div>
 	);
 }

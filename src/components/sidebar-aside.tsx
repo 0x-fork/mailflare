@@ -3,7 +3,6 @@
 import clsx from "clsx";
 import { Menu } from "lucide-react";
 import type { ReactNode } from "react";
-import { useBranding } from "./branding-provider";
 import { useSidebar } from "./sidebar-state";
 
 export function SidebarAside({ children, className }: { children: ReactNode; className?: string }) {
@@ -43,18 +42,11 @@ export function MobileMenuButton({ className }: { className?: string }) {
 	);
 }
 
-export function MobileBrandIcon() {
-	const branding = useBranding();
-	return <img src={branding.iconUrl} height={24} width={24} alt="" className="shrink-0 md:hidden" />;
-}
-
-// Phone top bar for pages without a header of their own: menu button, brand icon, then the page title.
+// Phone top bar for pages without a header of their own: menu button, then the page title.
 export function MobileTopBar({ title }: { title?: string }) {
-	const branding = useBranding();
 	return (
 		<div className="flex h-16 shrink-0 items-center gap-2 pl-2 md:hidden">
 			<MobileMenuButton />
-			<MobileBrandIcon />
 			{title && <h2 className="min-w-0 max-w-[40vw] truncate text-base font-medium text-neutral-900">{title}</h2>}
 		</div>
 	);
