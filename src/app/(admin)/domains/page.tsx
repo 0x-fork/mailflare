@@ -21,6 +21,7 @@ import type { DnsAuthRecord, DnsStatusSummary, Domain, DomainDnsCache, DomainDns
 import DomainItemCard from "./DomainItemCard";
 import { SectionRowSkeleton } from "@/components/page-skeletons";
 import { checkDomain } from "./utils";
+import { confirmMxReplacement } from "./api";
 
 export default function DomainsPage() {
   const qc = useQueryClient();
@@ -158,12 +159,17 @@ export default function DomainsPage() {
     setSendingBusy(true);
     setSendingMessage(null);
     try {
-      const res = await authFetch(`/api/domains/${id}/sending`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ provider }),
-      });
-      const json = (await res.json()) as { warning?: string; error?: string };
+      const put = async (replaceMx: boolean) => {
+        const res = await authFetch(`/api/domains/${id}/sending`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ provider, replaceMx }),
+        });
+        return { res, json: (await res.json()) as { warning?: string; error?: string; code?: string; records?: { content: string; priority: number }[] } };
+      };
+      let { res, json } = await put(false);
+      // Cloudflare sending refuses while another service's MX records exist.
+      if (confirmMxReplacement(res, json)) ({ res, json } = await put(true));
       if (!res.ok) throw new Error(json.error ?? "Failed to change sending provider");
       if (json.warning) setSendingMessage(json.warning);
       await loadDns(id);
@@ -213,16 +219,25 @@ export default function DomainsPage() {
     setSetupRecord(record);
     setSetupMessage(null);
     try {
-      const res = await authFetch(`/api/domains/${dnsView.domain.id}/dns/setup`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ record }),
-      });
-      const json = (await res.json()) as {
-        domain?: Domain;
-        dns?: DomainDnsView;
-        error?: string;
+      const post = async (replaceMx: boolean) => {
+        const res = await authFetch(`/api/domains/${dnsView.domain.id}/dns/setup`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ record, replaceMx }),
+        });
+        return {
+          res,
+          json: (await res.json()) as {
+            domain?: Domain;
+            dns?: DomainDnsView;
+            error?: string;
+            code?: string;
+            records?: { content: string; priority: number }[];
+          },
+        };
       };
+      let { res, json } = await post(false);
+      if (confirmMxReplacement(res, json)) ({ res, json } = await post(true));
       if (!res.ok) throw new Error(json.error ?? "Failed to set up DNS record");
       if (json.domain && json.dns) {
         const updatedView = { domain: json.domain, dns: json.dns };
