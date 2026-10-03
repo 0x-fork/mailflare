@@ -1,5 +1,6 @@
 import type { BulkMessageAction } from "@/app/api/messages/bulk/types";
 import { authFetch } from "@/lib/auth/client";
+import { markMessagesReadInCaches } from "@/hooks/utils";
 import { getEmailAddress, normalizeEmailAddress, splitEmailAddressList } from "@/lib/email/address";
 import { getLatestEmailContent } from "@/lib/email/reply-content-utils";
 import { formatUserDate } from "@/lib/time/utils";
@@ -50,6 +51,7 @@ export async function runSingleMessageAction(
     throw new Error("Unable to update message");
   }
 
+  if (action === "read" || action === "unread") markMessagesReadInCaches([messageId], action === "read");
   window.dispatchEvent(new Event("mailflare:messages-changed"));
 }
 

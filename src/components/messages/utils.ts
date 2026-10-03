@@ -1,5 +1,6 @@
 import type { Message } from "@/hooks/types";
 import { authFetch } from "@/lib/auth/client";
+import { markMessagesReadInCaches } from "@/hooks/utils";
 import { getEmailDisplayName, splitEmailAddressList } from "@/lib/email/address";
 import { formatUserDate, getUserTimeZone, zonedDateFields } from "@/lib/time/utils";
 import type { MailboxOption } from "@/components/mailbox-provider";
@@ -87,5 +88,6 @@ export async function runBulkMessageAction(messageIds: string[], action: string,
 	});
 
 	if (!response.ok) throw new Error("Unable to update selected messages");
+	if (action === "read" || action === "unread") markMessagesReadInCaches(messageIds, action === "read");
 	if (notify) window.dispatchEvent(new Event("mailflare:messages-changed"));
 }
