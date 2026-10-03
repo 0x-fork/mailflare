@@ -265,6 +265,7 @@ export async function ensureDemoDomain(env: CloudflareEnv, userId: string) {
 		status: "active",
 		routingEnabled: true,
 		sendingRequested: true,
+		sendingProvider: "cloudflare" as const,
 		sendingEnabled: true,
 	});
 

@@ -27,6 +27,13 @@ export default function DomainItemCard({
   item,
   dns,
   dnsDetails,
+  onSendingProviderChange,
+  sendingProviderBusy,
+  sendingProviderMessage,
+  onReceivingProviderChange,
+  receivingProviderBusy,
+  receivingProviderMessage,
+  onDnsChanged,
   dnsLoading = false,
   dnsError,
   expanded = false,
@@ -64,20 +71,41 @@ export default function DomainItemCard({
               <StatusIcon ok={item.status === "active"} className="h-3 w-3" />
               {item.status}
             </Badge>
-            <Badge
-              variant={item.routingEnabled ? "outline" : "secondary"}
-              className={cn("gap-1", !item.routingEnabled && "opacity-50")}
-            >
-              <StatusIcon ok={item.routingEnabled} className="h-3 w-3" />
-              routing
-            </Badge>
-            <Badge
-              variant={item.sendingEnabled ? "outline" : "secondary"}
-              className={cn("gap-1", !item.sendingEnabled && "opacity-50")}
-            >
-              <StatusIcon ok={item.sendingEnabled} className="h-3 w-3" />
-              sending
-            </Badge>
+            {item.receivingProvider === "cloudflare" ? (
+              <Badge
+                variant={item.routingEnabled ? "outline" : "secondary"}
+                className={cn("gap-1", !item.routingEnabled && "opacity-50")}
+              >
+                <StatusIcon ok={item.routingEnabled} className="h-3 w-3" />
+                routing
+              </Badge>
+            ) : item.receivingProvider === "none" ? (
+              <Badge variant="secondary" className="gap-1 opacity-50">
+                sending only
+              </Badge>
+            ) : (
+              <Badge variant="outline" className="gap-1">
+                receiving via {item.receivingProvider === "ses" ? "Amazon SES" : "Resend"}
+              </Badge>
+            )}
+            {item.sendingProvider === "resend" || item.sendingProvider === "ses" ? (
+              <Badge variant="outline" className="gap-1">
+                <StatusIcon ok className="h-3 w-3" />
+                sending via {item.sendingProvider === "ses" ? "Amazon SES" : "Resend"}
+              </Badge>
+            ) : item.sendingProvider === "none" ? (
+              <Badge variant="secondary" className="gap-1 opacity-50">
+                receiving only
+              </Badge>
+            ) : (
+              <Badge
+                variant={item.sendingEnabled ? "outline" : "secondary"}
+                className={cn("gap-1", !item.sendingEnabled && "opacity-50")}
+              >
+                <StatusIcon ok={item.sendingEnabled} className="h-3 w-3" />
+                sending
+              </Badge>
+            )}
           </div>
 
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
@@ -121,6 +149,13 @@ export default function DomainItemCard({
           <DomainDnsDetails
             domain={item}
             dns={dnsDetails}
+            onSendingProviderChange={onSendingProviderChange}
+            sendingProviderBusy={sendingProviderBusy}
+            sendingProviderMessage={sendingProviderMessage}
+            onReceivingProviderChange={onReceivingProviderChange}
+            receivingProviderBusy={receivingProviderBusy}
+            receivingProviderMessage={receivingProviderMessage}
+            onDnsChanged={onDnsChanged}
             onSetup={onSetup}
             setupRecord={setupRecord}
             setupMessage={setupMessage}

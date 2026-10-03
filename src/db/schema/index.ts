@@ -50,6 +50,8 @@ export const domains = sqliteTable(
 			.default("pending"),
 		routingStatus: text("routing_status"),
 		sendingSubdomainTag: text("sending_subdomain_tag"),
+		sendingProvider: text("sending_provider", { enum: ["none", "cloudflare", "resend", "ses"] }).notNull().default("none"),
+		receivingProvider: text("receiving_provider", { enum: ["none", "cloudflare", "resend", "ses"] }).notNull().default("cloudflare"),
 		sendingRequested: integer("sending_requested", { mode: "boolean" }).notNull().default(false),
 		sendingEnabled: integer("sending_enabled", { mode: "boolean" }).notNull().default(false),
 		routingEnabled: integer("routing_enabled", { mode: "boolean" }).notNull().default(false),
@@ -639,6 +641,13 @@ export const appSettings = sqliteTable("app_settings", {
 	id: text("id").primaryKey(),
 	appName: text("app_name").notNull().default("Mailflare"),
 	outboundAttachmentMaxMb: integer("outbound_attachment_max_mb").notNull().default(25),
+	resendApiKey: text("resend_api_key"),
+	/** JSON: AWS access key, secret and region (see src/lib/aws/config.ts). */
+	awsConfig: text("aws_config"),
+	/** JSON: the shared SES inbound resources Mailflare created (bucket, topic, rule set, webhook token). */
+	sesReceiving: text("ses_receiving"),
+	resendWebhookId: text("resend_webhook_id"),
+	resendWebhookSecret: text("resend_webhook_secret"),
 	iconKey: text("icon_key"),
 	agentEnabled: integer("agent_enabled", { mode: "boolean" }).notNull().default(true),
 	agentProvider: text("agent_provider", { enum: ["cloudflare", "compatible"] }),

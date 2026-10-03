@@ -18,7 +18,7 @@ import { Switch } from "@/components/ui/switch";
 import { List } from "@/components/ui/list";
 import { CheckCircle2, LoaderCircle, Plus } from "lucide-react";
 import { authFetch } from "@/lib/auth/client";
-import type { DnsAuthRecord, DnsStatusSummary, Domain, DomainDnsCache, DomainDnsView, DomainPreflight } from "./types";
+import type { DnsAuthRecord, DnsStatusSummary, Domain, DomainDnsCache, DomainDnsView, DomainPreflight, ReceivingProvider, SendingProvider } from "./types";
 import DomainItemCard from "./DomainItemCard";
 import { SectionRowSkeleton } from "@/components/page-skeletons";
 import { checkDomain } from "./utils";
@@ -35,6 +35,7 @@ export default function DomainsPage() {
   const [domainCheck, setDomainCheck] = useState<DomainPreflight | null>(null);
   const [domainChecking, setDomainChecking] = useState(false);
   const [enableSending, setEnableSending] = useState(false);
+  const [receivingProvider, setReceivingProvider] = useState<ReceivingProvider>("cloudflare");
   const [domainCheckError, setDomainCheckError] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [setupRecord, setSetupRecord] = useState<DnsAuthRecord | null>(null);
@@ -80,6 +81,7 @@ export default function DomainsPage() {
           hostname: checkedDomain.hostname,
           enableRouting: true,
           enableSending: sendingRequested,
+          receivingProvider,
         }),
       });
       const json = (await res.json()) as { error?: string };
@@ -90,6 +92,7 @@ export default function DomainsPage() {
       setHostname("");
       setDomainCheck(null);
       setEnableSending(false);
+      setReceivingProvider("cloudflare");
       setDomainCheckError(null);
       setCreateOpen(false);
       qc.invalidateQueries({ queryKey: ["domains"] });
@@ -148,6 +151,63 @@ export default function DomainsPage() {
     } finally {
       if (expandedIdRef.current === id) setDnsLoading(false);
     }
+  };
+
+  const [sendingBusy, setSendingBusy] = useState(false);
+  const [sendingMessage, setSendingMessage] = useState<string | null>(null);
+
+  const changeSendingProvider = async (provider: SendingProvider) => {
+    if (!expandedDomainId) return;
+    const id = expandedDomainId;
+    setSendingBusy(true);
+    setSendingMessage(null);
+    try {
+      const res = await authFetch(`/api/domains/${id}/sending`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ provider }),
+      });
+      const json = (await res.json()) as { warning?: string; error?: string };
+      if (!res.ok) throw new Error(json.error ?? "Failed to change sending provider");
+      if (json.warning) setSendingMessage(json.warning);
+      await loadDns(id);
+      qc.invalidateQueries({ queryKey: ["domains"] });
+    } catch (error) {
+      setSendingMessage(error instanceof Error ? error.message : "Failed to change sending provider");
+    } finally {
+      setSendingBusy(false);
+    }
+  };
+
+  const [receivingBusy, setReceivingBusy] = useState(false);
+  const [receivingMessage, setReceivingMessage] = useState<string | null>(null);
+
+  const changeReceivingProvider = async (provider: ReceivingProvider) => {
+    if (!expandedDomainId) return;
+    const id = expandedDomainId;
+    setReceivingBusy(true);
+    setReceivingMessage(null);
+    try {
+      const res = await authFetch(`/api/domains/${id}/receiving`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ provider }),
+      });
+      const json = (await res.json()) as { error?: string };
+      if (!res.ok) throw new Error(json.error ?? "Failed to change receiving provider");
+      await loadDns(id);
+      qc.invalidateQueries({ queryKey: ["domains"] });
+    } catch (error) {
+      setReceivingMessage(error instanceof Error ? error.message : "Failed to change receiving provider");
+    } finally {
+      setReceivingBusy(false);
+    }
+  };
+
+  const refreshExpandedDns = () => {
+    if (!expandedDomainId) return;
+    void loadDns(expandedDomainId).catch(() => undefined);
+    qc.invalidateQueries({ queryKey: ["domains"] });
   };
 
   const setupDns = async (record: DnsAuthRecord) => {
@@ -209,7 +269,7 @@ export default function DomainsPage() {
           <h1 className="text-2xl md:text-3xl font-medium">Domains</h1>
           <p className="mt-1 text-sm text-neutral-500">
             {managesDns
-              ? "Domains must be on your Cloudflare account. Email Routing is enabled automatically, and Email Sending can be enabled when available."
+              ? "Domains must be on your Cloudflare account, which manages their DNS. Choose per domain whether Cloudflare, Resend or Amazon SES receives and sends its mail."
               : "Add the domains this server receives mail for. Open DNS on a domain to see the MX, SPF and DMARC records to create."}
           </p>
         </div>
@@ -224,8 +284,8 @@ export default function DomainsPage() {
             <DialogHeader>
               <DialogTitle>Add domain</DialogTitle>
               <DialogDescription>
-                Connect a Cloudflare zone and choose whether Mailflare should
-                provision Email Sending.
+                Connect a Cloudflare zone, then choose which service receives
+                its mail and whether Mailflare should provision Email Sending.
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
@@ -244,6 +304,29 @@ export default function DomainsPage() {
                   onBlur={() => void inspectDomain()}
                   placeholder="example.com"
                 />
+              </div>
+              <div className="flex items-center justify-between gap-4 rounded-xl bg-neutral-50 px-4 py-3">
+                <div>
+                  <Label htmlFor="receiving-provider">Receive mail with</Label>
+                  <p className="mt-1 text-xs leading-5 text-neutral-500">
+                    {receivingProvider === "cloudflare"
+                      ? "Cloudflare Email Routing is enabled on the zone."
+                      : receivingProvider === "none"
+                        ? "The domain only sends. Add a receiving service later."
+                        : "Add your credentials and set it up from the domain page after adding."}
+                  </p>
+                </div>
+                <select
+                  id="receiving-provider"
+                  value={receivingProvider}
+                  onChange={(e) => setReceivingProvider(e.target.value as ReceivingProvider)}
+                  className="h-9 shrink-0 rounded-md border border-neutral-200 bg-white px-3 text-sm"
+                >
+                  <option value="cloudflare">Cloudflare Email Routing</option>
+                  <option value="resend">Resend</option>
+                  <option value="ses">Amazon SES</option>
+                  <option value="none">Not selected</option>
+                </select>
               </div>
               <div className="flex items-center justify-between gap-4 rounded-xl bg-neutral-50 px-4 py-3">
                 <div>
@@ -330,6 +413,13 @@ export default function DomainsPage() {
                 key={d.id}
                 dns={dns}
                 dnsDetails={dnsViews[d.id]?.dns}
+                onSendingProviderChange={changeSendingProvider}
+                sendingProviderBusy={sendingBusy}
+                sendingProviderMessage={expandedDomainId === d.id ? sendingMessage : null}
+                onReceivingProviderChange={changeReceivingProvider}
+                receivingProviderBusy={receivingBusy}
+                receivingProviderMessage={expandedDomainId === d.id ? receivingMessage : null}
+                onDnsChanged={refreshExpandedDns}
                 dnsLoading={expandedDomainId === d.id && dnsLoading}
                 dnsError={expandedDomainId === d.id ? dnsError : null}
                 expanded={expandedDomainId === d.id}
