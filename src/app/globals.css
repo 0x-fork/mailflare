@@ -465,8 +465,8 @@ button {
 /* HTML emails assume a white background: keep them on light "paper" inside the dark theme */
 .dark .email-body {
 	color-scheme: light;
-	background: #fff;
-	color: #202124;
+	/* background: #fff; */
+	/* color: #202124; */
 	border-radius: 0.75rem;
 	padding: 1rem;
 }

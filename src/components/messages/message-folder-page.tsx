@@ -402,7 +402,7 @@ export function MessageFolderPage({
 
 	return (
 		<div className="flex h-full min-h-0 flex-col">
-			<div className={`flex h-14 shrink-0 items-center justify-between border-b border-neutral-200 ${compact ? "px-4" : "px-6"}`}>
+			<div className={`flex h-14 shrink-0 items-center justify-between border-b border-neutral-200 ${compact ? "px-4" : "px-4.5 md:px-6"}`}>
 				<div className="flex items-center gap-3 w-full">
 					<Tooltip label="Select all visible messages">
 						<Checkbox
@@ -423,13 +423,8 @@ export function MessageFolderPage({
 							folder={config.folderId ? undefined : config.folder}
 						/>
 					) : (
-						compact && (
-							<>
-								{/* <h1 className="truncate text-sm font-semibold text-neutral-900">
-									{config.title}
-								</h1>
-								<Badge variant="secondary">{total}</Badge> */}
-							</>
+						(compact || isMobile) && (
+							<h1 className="truncate font-semibold text-neutral-900 pl-1">{config.title}</h1>
 						)
 					)}
 				</div>

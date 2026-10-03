@@ -373,14 +373,6 @@ export function MailboxSelector({ initialUser }: MailboxSelectorProps = {}) {
 					)}
 
 					<div className="mt-2 overflow-hidden rounded-[22px] bg-white">
-						<Link
-							href="/login?add=1"
-							onClick={() => setOpen(false)}
-							className="flex items-center gap-3 px-5 py-4 text-sm font-medium text-neutral-800 hover:bg-[#f2f6fc]"
-						>
-							<UserPlus size={18} className="text-neutral-600" />
-							Add another account
-						</Link>
 						{user?.role === "admin" && (
 							<Link
 								href="/admin"
@@ -392,6 +384,14 @@ export function MailboxSelector({ initialUser }: MailboxSelectorProps = {}) {
 								{adminActive && <Check className="ml-auto h-4 w-4 text-blue-600" />}
 							</Link>
 						)}
+						<Link
+							href="/login?add=1"
+							onClick={() => setOpen(false)}
+							className="flex items-center gap-3 px-5 py-4 text-sm font-medium text-neutral-800 hover:bg-[#f2f6fc]"
+						>
+							<UserPlus size={18} className="text-neutral-600" />
+							Add another account
+						</Link>
 						<button
 							type="button"
 							onClick={logout}

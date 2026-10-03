@@ -95,7 +95,7 @@ export function MessageSplitLayout({
 			)}
 			<MessageListVisibilityContext.Provider value={{ visible: listVisible, toggle: () => { const visible = !manualListVisible; setManualListVisible(visible); saveMessageListVisible(visible); }, singleColumn: !twoColumnReading, backHref: config.hrefPrefix, backLabel: config.title }}>
 			<MessageDetailNavigationProvider config={config}>
-			<section className="min-h-0 min-w-0 overflow-hidden bg-white flex flex-col">
+			<section className="min-h-0 min-w-0 overflow-hidden bg-white flex flex-col h-full">
 				{twoColumnReading && selectedMessages.length > 0 ? (
 					<BulkMessageSelectionPane
 						folder={config.folder}

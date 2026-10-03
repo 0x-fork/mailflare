@@ -6,6 +6,7 @@ import { Archive, Ban, BellOff, Clock, FileCode2, Forward, Mail, MailOpen, MoreV
 import { useCompose } from "@/components/compose/compose-context";
 import { MessageSourceDialog } from "@/components/messages/message-source-dialog";
 import { MessageSnoozeDialog } from "./message-snooze-dialog";
+import { useIsMobile } from "@/components/sidebar-mobile-utils";
 import { useHotkeys, useShortcuts } from "@/components/shortcuts";
 import { Button } from "@/components/ui/button";
 import { Tooltip } from "@/components/ui/tooltip";
@@ -43,6 +44,7 @@ export function MessageActions({
 	bodyHtml,
 }: MessageActionsProps) {
 	const router = useRouter();
+	const isMobile = useIsMobile();
 	const { openDraftComposer } = useCompose();
 	const { shortcutsEnabled } = useShortcuts();
 	const [pendingAction, setPendingAction] = useState<
@@ -228,6 +230,40 @@ export function MessageActions({
 		<div className="flex flex-wrap items-center gap-3 text-neutral-600 flex-1 min-w-0">
 			{error && <span className="text-xs text-red-600">{error}</span>}
 
+			{isMobile && (
+				<>
+					<Button
+						type="button"
+						variant="ghost"
+						size="roundedSM"
+						aria-label="Reply"
+						disabled={disabled}
+						onClick={() => handleReply("reply")}
+					>
+						<Reply size={iconSize} />
+					</Button>
+					<Button
+						variant="ghost"
+						size="roundedSM"
+						aria-label="Move to trash"
+						disabled={disabled || status === "trash"}
+						onClick={() => runAction("trash")}
+					>
+						<Trash2 size={iconSize} />
+					</Button>
+					<Button
+						variant="ghost"
+						size="roundedSM"
+						aria-label="Report spam"
+						disabled={disabled || status === "spam" || direction !== "inbound"}
+						onClick={() => runAction("spam")}
+					>
+						<ShieldAlert size={iconSize} />
+					</Button>
+				</>
+			)}
+			{!isMobile && (
+				<>
 			<Tooltip label={shortcutsEnabled ? "Archive (e)" : "Archive"}>
 				<Button
 					variant="ghost"
@@ -316,6 +352,8 @@ export function MessageActions({
 					{read ? <Mail size={iconSize} /> : <MailOpen size={iconSize} />}
 				</Button>
 			</Tooltip>
+				</>
+			)}
 			<div className="relative">
 				<Tooltip label="More actions">
 					<Button
@@ -334,6 +372,31 @@ export function MessageActions({
 
 				{moreOpen && (
 					<div className="absolute right-0 top-8 z-20 w-54 rounded-xl border border-neutral-200 bg-white p-2 shadow-lg">
+						{isMobile && (
+							<>
+								<button type="button" className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-neutral-700 hover:bg-neutral-100 disabled:text-neutral-400" disabled={status === "archived"} onClick={() => void runAction("archive")}>
+									<Archive className="h-4 w-4" />
+									Archive
+								</button>
+								{canReplyAll && (
+									<button type="button" className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-neutral-700 hover:bg-neutral-100 disabled:text-neutral-400" onClick={() => { setMoreOpen(false); void handleReply("replyAll"); }}>
+										<ReplyAll className="h-4 w-4" />
+										Reply all
+									</button>
+								)}
+								{message && messageMeta && (
+									<button type="button" className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-neutral-700 hover:bg-neutral-100 disabled:text-neutral-400" onClick={() => { setMoreOpen(false); void handleForward(); }}>
+										<Forward className="h-4 w-4" />
+										Forward
+									</button>
+								)}
+								<button type="button" className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-neutral-700 hover:bg-neutral-100 disabled:text-neutral-400" onClick={() => void runAction(markAction)}>
+									{read ? <Mail className="h-4 w-4" /> : <MailOpen className="h-4 w-4" />}
+									{read ? "Mark as unread" : "Mark as read"}
+								</button>
+								<hr className="my-1 border-neutral-100" />
+							</>
+						)}
 						{direction === "inbound" && status === "received" && (
 							<button
 								type="button"
