@@ -4,14 +4,18 @@ import packageJson from "../../package.json";
 import { useSidebar } from "./sidebar-state";
 import { useShortcuts } from "./shortcuts";
 import { Keyboard } from "lucide-react";
+import { LanguageSelector } from "./language-selector";
+import { useLanguage } from "./language-provider";
 
 export function SidebarFooter() {
+	const { t } = useLanguage();
 	const { minimal } = useSidebar();
 	const { openHelpModal, shortcutsEnabled, shortcutsPreferenceLoading } = useShortcuts();
 	if (minimal) return null;
 
   return (
     <div className="px-3 pt-3 flex flex-col gap-2">
+      <LanguageSelector />
       {shortcutsEnabled && !shortcutsPreferenceLoading && (
         <button
           type="button"
@@ -20,7 +24,7 @@ export function SidebarFooter() {
         >
           <span className="flex items-center gap-1.5">
             <Keyboard className="w-3.5 h-3.5 text-neutral-400" />
-            Shortcuts
+            {t("navigation.shortcuts")}
           </span>
           <kbd className="px-1.5 py-0.5 font-mono text-[10px] bg-white border border-neutral-200 rounded text-neutral-500 shadow-2xs">
             ?
@@ -28,7 +32,7 @@ export function SidebarFooter() {
         </button>
       )}
       <p className="px-1 text-[11px] text-neutral-400">
-        Powered by{" "}
+        {t("navigation.poweredBy")}{" "}
         <a
           href={`https://mailflare.co/?ref=${typeof window !== "undefined" ? location.hostname : ""}&v=${packageJson.version}`}
           target="_blank"
