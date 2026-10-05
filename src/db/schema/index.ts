@@ -23,6 +23,8 @@ export const users = sqliteTable("users", {
 	canManageUsers: integer("can_manage_users", { mode: "boolean" }).notNull().default(false),
 	keyboardShortcutsEnabled: integer("keyboard_shortcuts_enabled", { mode: "boolean" }).notNull().default(true),
 	spamProtectionEnabled: integer("spam_protection_enabled", { mode: "boolean" }).notNull().default(true),
+	/** Days a message may stay in Trash or Spam before the scheduled purge deletes it; null keeps it forever. */
+	trashRetentionDays: integer("trash_retention_days"),
 	// Off shows the mailbox only. On shows Name <mailbox> on To, Cc, and Bcc.
 	showFullRecipientAddresses: integer("show_full_recipient_addresses", { mode: "boolean" }).notNull().default(false),
 	// TOTP second factor. The secret is written at enrolment and only counts
@@ -258,6 +260,8 @@ export const messages = sqliteTable(
 		spamSignals: text("spam_signals"),
 		spamAnalyzedAt: integer("spam_analyzed_at", { mode: "timestamp" }),
 		spamAnalysisError: text("spam_analysis_error"),
+		/** When the message last entered Trash or Spam; maintained by triggers (migration 0053). */
+		trashedAt: integer("trashed_at", { mode: "timestamp" }),
 		createdAt: integer("created_at", { mode: "timestamp" })
 			.notNull()
 			.$defaultFn(() => new Date()),
@@ -269,6 +273,7 @@ export const messages = sqliteTable(
 		index("messages_thread_idx").on(t.mailboxId, t.threadId),
 		index("messages_provider_message_idx").on(t.mailboxId, t.providerMessageId),
 		index("messages_raw_r2_key_idx").on(t.rawR2Key),
+		index("messages_trashed_at_idx").on(t.trashedAt),
 		index("messages_inbox_page_idx").on(
 			t.mailboxId,
 			t.status,

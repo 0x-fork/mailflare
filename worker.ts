@@ -19,6 +19,7 @@ import {
 import { runScheduledDatabaseBackup } from "./src/lib/backups/runner";
 import { processAgentDraftJob } from "./src/lib/agent/jobs/utils";
 import { runAgentMaintenance } from "./src/lib/agent/maintenance";
+import { runTrashRetention } from "./src/lib/email/trash-retention";
 export { RealtimeHub } from "./src/lib/realtime/hub";
 
 export default {
@@ -124,5 +125,6 @@ export default {
 	async scheduled(controller: ScheduledController, env: CloudflareEnv, ctx: ExecutionContext) {
 		if (controller.cron === "0 2 * * *") ctx.waitUntil(runScheduledDatabaseBackup(env, new Date(controller.scheduledTime)));
 		ctx.waitUntil(runAgentMaintenance(env));
+		ctx.waitUntil(runTrashRetention(env, new Date(controller.scheduledTime)));
 	},
 } satisfies ExportedHandler<CloudflareEnv>;
