@@ -7,6 +7,8 @@ import type { MailboxOption } from "@/components/mailbox-provider";
 import type { EmailPageTitleInput } from "./types";
 import type { MessageFolderConfig } from "./types";
 import type { PageRange } from "./types";
+import type { PermanentDeleteFolder } from "@/app/api/messages/bulk/types";
+import type { EmptyFolderResponse } from "@/app/api/messages/empty/types";
 
 export function getMessageParty(
 	message: Message,
@@ -90,4 +92,25 @@ export async function runBulkMessageAction(messageIds: string[], action: string,
 	if (!response.ok) throw new Error("Unable to update selected messages");
 	if (action === "read" || action === "unread") markMessagesReadInCaches(messageIds, action === "read");
 	if (notify) window.dispatchEvent(new Event("mailflare:messages-changed"));
+}
+
+/**
+ * Empty a mailbox's Trash or Spam. The API deletes in batches and reports what is
+ * left, so keep calling until nothing remains (or a call stops making progress).
+ */
+export async function emptyMessageFolder(mailboxId: string, folder: PermanentDeleteFolder): Promise<number> {
+	let deletedTotal = 0;
+	for (;;) {
+		const response = await authFetch("/api/messages/empty", {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ mailboxId, folder }),
+		});
+		const data = (await response.json().catch(() => ({}))) as EmptyFolderResponse;
+		if (!response.ok) throw new Error(data.error ?? "Unable to empty folder");
+		deletedTotal += data.deleted ?? 0;
+		if (!data.remaining || !data.deleted) break;
+	}
+	window.dispatchEvent(new Event("mailflare:messages-changed"));
+	return deletedTotal;
 }
