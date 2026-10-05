@@ -19,7 +19,7 @@ export async function permanentlyDeleteMessages(
 	db: AppDatabase,
 	actorUserId: string,
 	rows: DeletableMessage[],
-	source: "bulk" | "empty",
+	source: "bulk" | "empty" | "retention",
 ): Promise<number> {
 	for (const row of rows) {
 		await deleteMessageWithObjects(env, db, row.id, row.rawR2Key);

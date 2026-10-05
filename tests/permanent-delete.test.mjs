@@ -13,6 +13,8 @@ await build({
 		contents: `
 			export { isAllowedBulkMessageAction, getStatusForBulkAction, getReadValueForBulkAction, isPermanentlyDeletableStatus, isPermanentDeleteFolder } from "./src/app/api/messages/bulk/utils.ts";
 			export { supportsPermanentDelete, getEmptyFolderLabel, getPermanentDeleteConfirmText, getEmptyFolderConfirmText } from "./src/lib/messages/permanent-delete-utils.ts";
+			export { TRASH_RETENTION_OPTIONS, getTrashRetentionCutoff, normalizeTrashRetentionDays, describeTrashRetention } from "./src/lib/email/trash-retention-utils.ts";
+			export { updateTrashRetentionSettingsSchema } from "./src/lib/validators.ts";
 		`,
 		resolveDir: root,
 		sourcefile: "permanent-delete-test-entry.ts",
@@ -59,4 +61,28 @@ test("confirmation text says how much is lost and that it is irreversible", () =
 	assert.equal(m.getEmptyFolderConfirmText("trash", 12), "Permanently delete all 12 messages in Trash? This cannot be undone.");
 	assert.equal(m.getEmptyFolderConfirmText("spam", 1), "Permanently delete the 1 message in Spam? This cannot be undone.");
 	assert.equal(m.getEmptyFolderConfirmText("trash"), "Permanently delete every message in Trash? This cannot be undone.");
+});
+
+test("retention cutoff is the given number of days before now", () => {
+	const now = new Date("2026-10-31T12:00:00Z");
+	assert.equal(m.getTrashRetentionCutoff(now, 30).toISOString(), "2026-10-01T12:00:00.000Z");
+	assert.equal(m.getTrashRetentionCutoff(now, 1).toISOString(), "2026-10-30T12:00:00.000Z");
+});
+
+test("retention days outside 1-365 or non-integers mean never", () => {
+	for (const days of m.TRASH_RETENTION_OPTIONS) assert.equal(m.normalizeTrashRetentionDays(days), days);
+	for (const days of [null, undefined, 0, -3, 366, 2.5, "30"]) assert.equal(m.normalizeTrashRetentionDays(days), null, String(days));
+	assert.equal(m.describeTrashRetention(null), "Never");
+	assert.equal(m.describeTrashRetention(1), "After 1 day");
+	assert.equal(m.describeTrashRetention(30), "After 30 days");
+});
+
+test("the settings API accepts whole days from 1 to 365, or null to turn it off", () => {
+	const ok = (days) => m.updateTrashRetentionSettingsSchema.safeParse({ days }).success;
+	assert.equal(ok(30), true);
+	assert.equal(ok(null), true);
+	assert.equal(ok(0), false);
+	assert.equal(ok(400), false);
+	assert.equal(ok(1.5), false);
+	assert.equal(ok("30"), false);
 });
