@@ -6,8 +6,7 @@ import { ChevronsUpDown, Paperclip } from "lucide-react";
 import { ContactAvatar } from "@/components/contacts/contact-avatar";
 import { QuotedEmailToggle } from "@/components/messages/quoted-email-toggle";
 import { runSingleMessageAction } from "@/components/message-actions/utils";
-import { sanitizeEmailHtml } from "@/app/(dashboard)/inbox/[messageId]/email-html-sanitizer";
-import { collapseQuotedEmailHtml } from "@/app/(dashboard)/inbox/[messageId]/quote-collapse-utils";
+import { EmailHtmlRenderer } from "./email-html-renderer";
 import { getMessageBodyDisplay, resolveInlineAttachmentUrls } from "@/app/(dashboard)/inbox/[messageId]/utils";
 
 import { cn } from "@/lib/utils";
@@ -138,9 +137,9 @@ export function ConversationMessageCard({
 	if (expanded) {
 		const display = getMessageBodyDisplay(message.textBody, message.htmlBody, message.snippet);
 		body = {
-			html: collapseQuotedEmailHtml(sanitizeEmailHtml(resolveInlineAttachmentUrls(display.htmlBody, message.id, message.attachments))),
+			html: resolveInlineAttachmentUrls(display.htmlBody, message.id, message.attachments),
 			text: display.latestContent,
-			quotedHtml: collapseQuotedEmailHtml(sanitizeEmailHtml(resolveInlineAttachmentUrls(display.quotedHtml, message.id, message.attachments)), true),
+			quotedHtml: resolveInlineAttachmentUrls(display.quotedHtml, message.id, message.attachments),
 		};
 	}
 
@@ -197,7 +196,7 @@ export function ConversationMessageCard({
 				{expanded && body && (
 					<div className="pb-4 pl-16 pt-2">
 						{body.html ? (
-							<div className="email-body max-w-none text-sm text-neutral-900" dangerouslySetInnerHTML={{ __html: body.html }} />
+							<EmailHtmlRenderer html={body.html} />
 						) : (
 							<pre className="whitespace-pre-wrap font-sans text-sm text-neutral-900">{body.text}</pre>
 						)}

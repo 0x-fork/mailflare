@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useSelectedMailbox } from "@/components/mailbox-provider";
-import { isHtmlSignature, signatureToHtml } from "@/components/compose/rich-text-utils";
+import { isHtmlSignature } from "@/components/compose/rich-text-utils";
+import { EmailHtmlRenderer } from "@/components/messages/email-html-renderer";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -65,9 +66,9 @@ export function MailboxSignatureForm() {
 			{isHtmlSignature(signature) && (
 				<div className="space-y-2">
 					<p className="text-xs font-medium text-neutral-500">Preview</p>
-					<div
+					<EmailHtmlRenderer
 						className="rounded-md border border-neutral-200 bg-white p-4 text-sm text-neutral-900"
-						dangerouslySetInnerHTML={{ __html: signatureToHtml(signature) }}
+						html={signature}
 					/>
 				</div>
 			)}
