@@ -45,7 +45,8 @@ const initialImapForm: ImapFormState = {
   username: "",
   password: "",
   folder: "INBOX",
-  limit: "25",
+  limit: "100",
+  importAll: true,
 };
 
 const defaultSections = importSourceOptions.map((option) => option.value);
@@ -156,14 +157,38 @@ export default function SettingsImportPage() {
         });
         const destination = await getDestination(source);
         const folder = resolveImapSourceFolder(source, discoveredFolders);
-        const result = await importFromImap(
-          selectedMailbox.id,
-          { ...imapForm, folder },
-          destination,
-        );
-        total.imported = (total.imported ?? 0) + (result.imported ?? 0);
-        total.skipped = (total.skipped ?? 0) + (result.skipped ?? 0);
-        total.errors = [...(total.errors ?? []), ...(result.errors ?? [])];
+        let offset = 0;
+        let processed = 0;
+        // Newest messages first, one batch per request. Without "import all"
+        // only the newest batch is imported.
+        while (true) {
+          const result = await importFromImap(
+            selectedMailbox.id,
+            { ...imapForm, folder },
+            destination,
+            offset,
+          );
+          total.imported = (total.imported ?? 0) + (result.imported ?? 0);
+          total.skipped = (total.skipped ?? 0) + (result.skipped ?? 0);
+          total.errors = [...(total.errors ?? []), ...(result.errors ?? [])];
+          processed +=
+            (result.imported ?? 0) +
+            (result.skipped ?? 0) +
+            (result.errors?.length ?? 0);
+          if (
+            !imapForm.importAll ||
+            result.nextOffset === null ||
+            result.nextOffset === undefined ||
+            result.nextOffset <= offset
+          )
+            break;
+          offset = result.nextOffset;
+          setImapProgress({
+            completed: index,
+            total: expandedSources.length,
+            label: `Importing ${source.label} (${processed}/${result.total ?? "?"} messages)`,
+          });
+        }
         setImapProgress({
           completed: index + 1,
           total: expandedSources.length,
@@ -387,7 +412,9 @@ export default function SettingsImportPage() {
                   <div className="grid gap-3 md:grid-cols-2">
                     <div className="space-y-2">
                       <Label htmlFor="imap-limit">
-                        Message limit per source
+                        {imapForm.importAll
+                          ? "Messages per batch"
+                          : "Message limit per source"}
                       </Label>
                       <Input
                         id="imap-limit"
@@ -403,6 +430,18 @@ export default function SettingsImportPage() {
                         }
                       />
                     </div>
+                    <label className="flex items-end gap-2 pb-2 text-sm text-neutral-700">
+                      <Checkbox
+                        checked={imapForm.importAll}
+                        onChange={(event) =>
+                          setImapForm({
+                            ...imapForm,
+                            importAll: event.target.checked,
+                          })
+                        }
+                      />
+                      Import all messages (newest first, in batches)
+                    </label>
                     <label className="flex items-end gap-2 pb-2 text-sm text-neutral-700">
                       <Checkbox
                         checked={imapForm.secure}

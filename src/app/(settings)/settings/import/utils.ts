@@ -99,6 +99,7 @@ export async function importFromImap(
 	mailboxId: string,
 	form: ImapFormState,
 	destination: string,
+	offset = 0,
 ): Promise<ImportResult> {
 	const response = await authFetch("/api/import/imap", {
 		method: "POST",
@@ -113,6 +114,7 @@ export async function importFromImap(
 			password: form.password,
 			folder: form.folder,
 			limit: Number(form.limit),
+			offset,
 		}),
 	});
 	const data = (await response.json()) as ImportResult;
@@ -149,11 +151,11 @@ function findFolderMatch(folders: string[], aliases: string[]): string | null {
 
 function getFolderAliases(section: ImportSourceSection): string[] {
 	if (section === "inbox") return ["INBOX", "Inbox"];
-	if (section === "sent") return ["Sent", "Sent Mail", "[Gmail]/Sent Mail", "Sent Items"];
+	if (section === "sent") return ["Sent", "Sent Mail", "[Gmail]/Sent Mail", "Sent Items", "Sent Messages"];
 	if (section === "drafts") return ["Drafts", "[Gmail]/Drafts"];
 	if (section === "archived") return ["Archive", "Archived", "[Gmail]/All Mail"];
 	if (section === "spam") return ["Spam", "Junk", "Junk Email", "[Gmail]/Spam"];
-	if (section === "trash") return ["Trash", "Deleted", "Deleted Items", "[Gmail]/Trash"];
+	if (section === "trash") return ["Trash", "Deleted", "Deleted Items", "Deleted Messages", "[Gmail]/Trash"];
 	return [];
 }
 
