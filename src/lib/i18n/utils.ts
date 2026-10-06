@@ -1,19 +1,17 @@
 import en from "./en.json";
-import ptBR from "./pt-BR.json";
+import { DEFAULT_LOCALE, locales } from "./locales";
 import type { Locale, Messages, TranslationKey } from "./types";
 
-export const DEFAULT_LOCALE: Locale = "en";
+export { DEFAULT_LOCALE } from "./locales";
 export const LOCALE_COOKIE = "mailflare-locale";
 export const LOCALE_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
 
-const catalogs: Record<Locale, Messages> = { en, "pt-BR": ptBR };
-
 export function resolveLocale(value: unknown): Locale {
-	return value === "pt-BR" ? "pt-BR" : DEFAULT_LOCALE;
+	return typeof value === "string" && Object.hasOwn(locales, value) ? value as Locale : DEFAULT_LOCALE;
 }
 
 export function getMessages(locale: Locale): Messages {
-	return catalogs[locale];
+	return locales[locale].messages;
 }
 
 export function translate(messages: Partial<Messages>, key: TranslationKey): string {

@@ -1,5 +1,5 @@
 import type en from "./en.json";
 
-export type Locale = "en" | "pt-BR";
+export type { Locale } from "./locales";
 export type TranslationKey = keyof typeof en;
 export type Messages = Record<TranslationKey, string>;

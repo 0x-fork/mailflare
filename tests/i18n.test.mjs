@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import test, { after } from "node:test";
@@ -11,62 +11,71 @@ const outDir = mkdtempSync(join(tmpdir(), "mailflare-i18n-"));
 after(() => rmSync(outDir, { recursive: true, force: true }));
 const outfile = join(outDir, "i18n.mjs");
 
-await build({
-	stdin: {
-		contents: `
-			import { createElement } from "react";
-			import { renderToStaticMarkup } from "react-dom/server";
-			import RootLayout from "./src/app/layout";
-			import { LanguageProvider, useLanguage } from "./src/components/language-provider";
-			import { LanguageSelector } from "./src/components/language-selector";
-			export * from "./src/lib/i18n/utils";
-			function Probe() { return createElement("span", null, useLanguage().t("navigation.inbox")); }
-			export function renderLanguage(locale) {
-				return renderToStaticMarkup(createElement(LanguageProvider, { initialLocale: locale }, createElement(Probe), createElement(LanguageSelector)));
-			}
-			export async function renderLayout(cookieValue) {
-				globalThis.testLocaleCookie = cookieValue;
-				return renderToStaticMarkup(await RootLayout({ children: createElement(Probe) }));
-			}
-		`,
-		resolveDir: root,
-		loader: "tsx",
-	},
-	outfile,
-	bundle: true,
-	platform: "node",
-	format: "esm",
-	target: "node22",
-	logLevel: "silent",
-	alias: { "@": join(root, "src") },
-	banner: { js: 'import { createRequire } from "node:module"; const require = createRequire(import.meta.url);' },
-	plugins: [{
-		name: "layout-runtime-stubs",
-		setup(builder) {
-			builder.onResolve({ filter: /^(next\/headers|next\/font\/google|@\/components\/providers)$/ }, (args) => ({ path: args.path, namespace: "stub" }));
-			builder.onLoad({ filter: /.*/, namespace: "stub" }, ({ path }) => ({ contents: path === "next/headers"
-				? 'export async function cookies() { return { get(name) { return name === "mailflare-locale" && globalThis.testLocaleCookie !== undefined ? { value: globalThis.testLocaleCookie } : undefined; } }; }'
-				: path === "next/font/google"
-					? 'export const Geist = () => ({ variable: "sans" }); export const Geist_Mono = () => ({ variable: "mono" });'
-					: 'export function Providers({ children }) { return children; }' }));
-			builder.onLoad({ filter: /\.css$/ }, () => ({ contents: "", loader: "js" }));
+async function bundleI18n(outfile, extraLocale = false) {
+	await build({
+		stdin: {
+			contents: `
+				import { createElement } from "react";
+				import { renderToStaticMarkup } from "react-dom/server";
+				import RootLayout from "./src/app/layout";
+				import { LanguageProvider, useLanguage } from "./src/components/language-provider";
+				import { LanguageSelector } from "./src/components/language-selector";
+				export * from "./src/lib/i18n/utils";
+				export * from "./src/lib/i18n/locales";
+				function Probe() { return createElement("span", null, useLanguage().t("navigation.inbox")); }
+				export function renderLanguage(locale) {
+					return renderToStaticMarkup(createElement(LanguageProvider, { initialLocale: locale }, createElement(Probe), createElement(LanguageSelector)));
+				}
+				export async function renderLayout(cookieValue) {
+					globalThis.testLocaleCookie = cookieValue;
+					return renderToStaticMarkup(await RootLayout({ children: createElement(Probe) }));
+				}
+			`,
+			resolveDir: root,
+			loader: "tsx",
 		},
-	}],
-});
+		outfile,
+		bundle: true,
+		platform: "node",
+		format: "esm",
+		target: "node22",
+		logLevel: "silent",
+		alias: { "@": join(root, "src") },
+		banner: { js: 'import { createRequire } from "node:module"; const require = createRequire(import.meta.url);' },
+		plugins: [{
+			name: "layout-runtime-stubs",
+			setup(builder) {
+				if (extraLocale) builder.onLoad({ filter: /\/i18n\/locales\.ts$/ }, ({ path }) => ({
+					contents: readFileSync(path, "utf8").replace("export const locales = {", `export const locales = {
+						es: { label: "Español", messages: { ...en, "navigation.inbox": "Entrada", "language.label": "Idioma" } },`),
+					loader: "ts",
+				}));
+				builder.onResolve({ filter: /^(next\/headers|next\/font\/google|@\/components\/providers)$/ }, (args) => ({ path: args.path, namespace: "stub" }));
+				builder.onLoad({ filter: /.*/, namespace: "stub" }, ({ path }) => ({ contents: path === "next/headers"
+					? 'export async function cookies() { return { get(name) { return name === "mailflare-locale" && globalThis.testLocaleCookie !== undefined ? { value: globalThis.testLocaleCookie } : undefined; } }; }'
+					: path === "next/font/google"
+						? 'export const Geist = () => ({ variable: "sans" }); export const Geist_Mono = () => ({ variable: "mono" });'
+						: 'export function Providers({ children }) { return children; }' }));
+				builder.onLoad({ filter: /\.css$/ }, () => ({ contents: "", loader: "js" }));
+			},
+		}],
+	});
+}
+await bundleI18n(outfile);
 
 const i18n = await import(pathToFileURL(outfile).href);
 const en = JSON.parse(readFileSync(join(root, "src/lib/i18n/en.json"), "utf8"));
-const ptBR = JSON.parse(readFileSync(join(root, "src/lib/i18n/pt-BR.json"), "utf8"));
 
-test("Portuguese has exactly the English keys and all messages are nonempty strings", () => {
-	assert.deepEqual(Object.keys(ptBR).sort(), Object.keys(en).sort());
-	for (const catalog of [en, ptBR]) {
+test("every registered catalog has the English keys and nonempty messages and label", () => {
+	for (const { messages: catalog, label } of Object.values(i18n.locales)) {
+		assert.ok(label.trim().length > 0);
+		assert.deepEqual(Object.keys(catalog).sort(), Object.keys(en).sort());
 		for (const value of Object.values(catalog)) assert.ok(typeof value === "string" && value.trim().length > 0);
 	}
 });
 
 test("missing, invalid and unsupported locale values fall back to English", () => {
-	for (const value of [undefined, null, "", "pt", "pt-br", "fr", "pt-BR; Path=/", {}]) assert.equal(i18n.resolveLocale(value), "en");
+	for (const value of [undefined, null, "", "not-a-registered-locale", "pt-BR; Path=/", {}]) assert.equal(i18n.resolveLocale(value), "en");
 	assert.equal(i18n.resolveLocale("en"), "en");
 	assert.equal(i18n.resolveLocale("pt-BR"), "pt-BR");
 });
@@ -99,5 +108,24 @@ test("root layout passes the same cookie locale to HTML and provider on first re
 		const english = await i18n.renderLayout(value);
 		assert.match(english, /<html lang="en"/);
 		assert.match(english, />Inbox<\/span>/);
+	}
+});
+
+test("a locale registered once reaches resolution, translation, cookie, selector and SSR", async () => {
+	assert.ok(existsSync(join(root, "src/lib/i18n/locales.ts")), "locales must have one shared registry");
+	const extraFile = join(outDir, "with-spanish.mjs");
+	await bundleI18n(extraFile, true);
+	const extended = await import(pathToFileURL(extraFile).href);
+	assert.equal(extended.resolveLocale("es"), "es");
+	assert.equal(extended.translate(extended.getMessages("es"), "navigation.inbox"), "Entrada");
+	assert.match(extended.serializeLocaleCookie("es", true), /^mailflare-locale=es;/);
+	const selector = extended.renderLanguage("es");
+	assert.match(selector, /value="es" lang="es" selected="">Español<\/option>/);
+	assert.match(selector, />Entrada<\/span>/);
+	const layout = await extended.renderLayout("es");
+	assert.match(layout, /<html lang="es"/);
+	assert.match(layout, />Entrada<\/span>/);
+	for (const invalid of ["constructor", "toString", "__proto__"]) {
+		assert.equal(extended.resolveLocale(invalid), "en");
 	}
 });
