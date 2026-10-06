@@ -3,17 +3,30 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Copy, KeyRound } from "lucide-react";
+import { useSelectedMailbox } from "@/components/mailbox-provider";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { createJmapApiKey } from "./utils";
 
+/** Upper bound `POST /api/api-keys` places on `mailboxIds`. */
+const MAX_KEY_MAILBOXES = 30;
+
 /**
  * Settings > App passwords card for connecting an external mail app over JMAP.
- * Mints an API key with the `jmap` scope and shows the details once.
+ * Mints a mailbox-scoped API key with the `jmap` scope and shows the details once.
+ * `POST /api/api-keys` requires `mailboxIds` for mail scopes, and a JMAP session
+ * only lists the mailboxes a key was granted, so the card asks which to include.
  */
 export function EmailClientsSettings() {
+	const { mailboxes, selectedMailbox, isLoading } = useSelectedMailbox();
 	const [name, setName] = useState("");
+	// `null` until the user changes the selection, which means every accessible mailbox —
+	// the same set a key could see before keys were mailbox-scoped. The API accepts at
+	// most 30 mailboxes per key, so past that the default is just the current mailbox.
+	const [chosenMailboxIds, setChosenMailboxIds] = useState<string[] | null>(null);
+	const mailboxIds = chosenMailboxIds ?? (mailboxes.length <= MAX_KEY_MAILBOXES ? mailboxes.map((mailbox) => mailbox.id) : [selectedMailbox?.id ?? mailboxes[0]?.id].filter((id): id is string => !!id));
 	const [key, setKey] = useState<string | null>(null);
 	const [error, setError] = useState<string | null>(null);
 	const [busy, setBusy] = useState(false);
@@ -25,7 +38,7 @@ export function EmailClientsSettings() {
 		setBusy(true);
 		setError(null);
 		try {
-			setKey(await createJmapApiKey(name.trim() || "Mail app"));
+			setKey(await createJmapApiKey(name.trim() || "Mail app", mailboxIds));
 			setName("");
 		} catch (err) {
 			setError(err instanceof Error ? err.message : "Could not create a key");
@@ -53,15 +66,36 @@ export function EmailClientsSettings() {
 					</p>
 				</div>
 			) : (
-				<form onSubmit={submit} className="flex flex-wrap items-end gap-3">
-					<div className="min-w-56 flex-1 space-y-2">
-						<Label htmlFor="jmap-key-name">Device or app name</Label>
-						<Input id="jmap-key-name" value={name} onChange={(event) => setName(event.target.value)} placeholder="Phone" />
+				<form onSubmit={submit} className="space-y-4">
+					<div className="flex flex-wrap items-end gap-3">
+						<div className="min-w-56 flex-1 space-y-2">
+							<Label htmlFor="jmap-key-name">Device or app name</Label>
+							<Input id="jmap-key-name" value={name} onChange={(event) => setName(event.target.value)} placeholder="Phone" />
+						</div>
+						<Button type="submit" disabled={busy || isLoading || !mailboxIds.length || mailboxIds.length > MAX_KEY_MAILBOXES}>
+							<KeyRound className="h-4 w-4" />
+							{busy ? "Creating..." : "Create app password"}
+						</Button>
 					</div>
-					<Button type="submit" disabled={busy}>
-						<KeyRound className="h-4 w-4" />
-						{busy ? "Creating..." : "Create app password"}
-					</Button>
+					<fieldset className="space-y-2">
+						<legend className="text-sm font-medium">Mailboxes this app can use</legend>
+						{isLoading ? (
+							<p className="text-sm text-neutral-500">Loading mailboxes...</p>
+						) : mailboxes.length === 0 ? (
+							<p className="text-sm text-neutral-500">No accessible mailboxes.</p>
+						) : (
+							mailboxes.map((mailbox) => (
+								<label key={mailbox.id} className="flex items-center gap-3 text-sm">
+									<Checkbox
+										checked={mailboxIds.includes(mailbox.id)}
+										onChange={(event) => setChosenMailboxIds(event.target.checked ? [...mailboxIds, mailbox.id] : mailboxIds.filter((id) => id !== mailbox.id))}
+									/>
+									{mailbox.localPart}@{mailbox.hostname}
+								</label>
+							))
+						)}
+						<p className="text-xs text-neutral-500">Aliases share their parent mailbox and are included with it. Up to {MAX_KEY_MAILBOXES} mailboxes per key.</p>
+					</fieldset>
 					{error && <p className="w-full text-sm text-red-600">{error}</p>}
 				</form>
 			)}
