@@ -35,6 +35,7 @@ export function MailSearchInput() {
 			<Search className="h-5 w-5 shrink-0" />
 			<Input
 				ref={inputRef}
+				data-mail-search-input=""
 				onBlur={() => setExpanded(false)}
 				value={query}
 				onChange={(event) => setQuery(event.target.value)}
