@@ -18,12 +18,12 @@ export function getMessages(locale: Locale): Messages {
 	return locales[locale].messages;
 }
 
-export type TranslationVars = Record<string, string | number>;
+export type TranslationVars = Record<string, string | number | null | undefined>;
 export type Translator = (key: TranslationKey | PluralKey, vars?: TranslationVars) => string;
 
 function interpolate(template: string, vars?: TranslationVars): string {
 	if (!vars) return template;
-	return template.replace(/\{(\w+)\}/g, (match, name: string) => (Object.hasOwn(vars, name) ? String(vars[name]) : match));
+	return template.replace(/\{(\w+)\}/g, (match, name: string) => (Object.hasOwn(vars, name) ? String(vars[name] ?? "") : match));
 }
 
 export function translate(messages: Partial<Messages>, key: TranslationKey, vars?: TranslationVars): string {
