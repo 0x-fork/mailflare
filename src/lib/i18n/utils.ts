@@ -14,8 +14,9 @@ export function getDirection(locale: Locale): "ltr" | "rtl" {
 	return (locales[locale] as { dir?: "rtl" }).dir ?? "ltr";
 }
 
-export function getMessages(locale: Locale): Messages {
-	return locales[locale].messages;
+/** Fetches the catalog for a locale; English is already bundled, others load on demand. */
+export async function loadMessages(locale: Locale): Promise<Partial<Messages>> {
+	return locales[locale].load();
 }
 
 export type TranslationVars = Record<string, string | number | null | undefined>;
@@ -33,8 +34,7 @@ export function translate(messages: Partial<Messages>, key: TranslationKey, vars
 // Server-safe translator. A numeric `count` var selects a plural variant: with
 // `inbox.unread.one` / `inbox.unread.other` catalog entries, `t("inbox.unread", { count })`
 // uses the locale's CLDR category and falls back to the bare key when no variant exists.
-export function createTranslator(locale: Locale): Translator {
-	const messages = getMessages(locale);
+export function createTranslator(locale: Locale, messages: Partial<Messages> = en): Translator {
 	const rules = new Intl.PluralRules(locale);
 	const known = (key: string) => key in messages || key in en;
 	return (key, vars) => {
@@ -54,4 +54,4 @@ export function serializeLocaleCookie(locale: Locale, secure: boolean): string {
 }
 
 /** Default for pure helpers that take an optional translator, so callers without one (and tests) get English. */
-export const defaultTranslator: Translator = createTranslator(DEFAULT_LOCALE);
+export const defaultTranslator: Translator = createTranslator(DEFAULT_LOCALE, en);

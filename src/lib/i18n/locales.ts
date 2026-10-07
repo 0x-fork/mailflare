@@ -1,13 +1,20 @@
 import en from "./en.json";
-import ptBR from "./pt-BR.json";
-import type { Messages } from "./types";
 
-// Register a catalog and its native display name here (add `dir: "rtl"` for right-to-left scripts). All locale consumers
-// (types, validation, cookies, SSR and the selector) derive from this registry.
+type LocaleEntry = {
+	/** The language's own name, shown in the selector. */
+	label: string;
+	/** Set for right-to-left scripts. */
+	dir?: "rtl";
+	/** English ships in the main bundle as the fallback; every other catalog is fetched when first needed. */
+	load: () => Promise<Record<string, string>>;
+};
+
+// Register a language here with its native name, and add its catalog file next to `en.json`.
+// Types, validation, cookies, SSR and the selector all derive from this registry.
 export const locales = {
-	en: { label: "English", messages: en },
-	"pt-BR": { label: "Português (Brasil)", messages: ptBR },
-} satisfies Record<string, { label: string; messages: Messages; dir?: "rtl" }>;
+	en: { label: "English", load: async () => en },
+	"pt-BR": { label: "Português (Brasil)", load: async () => (await import("./pt-BR.json")).default },
+} satisfies Record<string, LocaleEntry>;
 
 export type Locale = keyof typeof locales;
 export const DEFAULT_LOCALE = "en" satisfies Locale;

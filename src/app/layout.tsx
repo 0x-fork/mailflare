@@ -3,7 +3,7 @@ import { cookies } from "next/headers";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Providers } from "@/components/providers";
 import { LanguageProvider } from "@/components/language-provider";
-import { LOCALE_COOKIE, getDirection, resolveLocale } from "@/lib/i18n/utils";
+import { DEFAULT_LOCALE, LOCALE_COOKIE, getDirection, loadMessages, resolveLocale } from "@/lib/i18n/utils";
 import { sidebarBootstrapScript } from "@/components/sidebar-state-utils";
 import { themeBootstrapScript } from "@/components/theme-utils";
 import "./globals.css";
@@ -40,6 +40,7 @@ export const metadata: Metadata = {
 
 export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
 	const locale = resolveLocale((await cookies()).get(LOCALE_COOKIE)?.value);
+	const messages = locale === DEFAULT_LOCALE ? undefined : await loadMessages(locale);
 	return (
 		<html lang={locale} dir={getDirection(locale)} suppressHydrationWarning>
 			<head>
@@ -48,7 +49,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
 				<link rel="icon" href="/api/branding/icon"></link>
 			</head>
 			<body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-				<LanguageProvider initialLocale={locale}><Providers>{children}</Providers></LanguageProvider>
+				<LanguageProvider initialLocale={locale} initialMessages={messages}><Providers>{children}</Providers></LanguageProvider>
 			</body>
 		</html>
 	);
