@@ -5,7 +5,7 @@ import { prepareEmailHtml } from "@/lib/email/html";
 import { collapseQuotedEmailHtml } from "@/app/(dashboard)/inbox/[messageId]/quote-collapse-utils";
 
 const BASE_STYLE = `
-:host { display:block; min-width:0; isolation:isolate; }
+:host { display:block; min-width:0; isolation:isolate; contain:paint; }
 .email-quote-toggle { margin-top:1.4em; }
 .email-quote-toggle > summary { cursor:pointer; list-style:none; width:26px; border-radius:20px; background:#ececec; text-align:center; }
 .email-quote-toggle > summary::-webkit-details-marker { display:none; }
