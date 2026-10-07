@@ -35,7 +35,7 @@ Want to support the mailflare? <a target="_blank" href="https://store.paymug.co/
 - **Admin**: Manage users, permissions, API keys, webhooks, audit logs, and backups.
 - **AI assistant**: Search your mail, draft replies, and manage calendar events with AI.
 - **MCP access**: Connect AI clients over MCP, with separate permissions for each key.
-- **Languages**: Use the interface in English, Português (Brasil), Español, Français, Deutsch, Русский, 中文（简体）, 日本語, Bahasa Indonesia, Türkçe, Tiếng Việt, हिन्दी, or العربية (right-to-left).
+- **Languages**: Use the interface in English, Português (Brasil), Español, Français, Deutsch, Русский, 中文（简体）, 日本語, Bahasa Indonesia, Türkçe, Tiếng Việt, हिन्दी, বাংলা, or العربية (right-to-left).
 
 ## How it works
 

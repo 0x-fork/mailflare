@@ -1859,5 +1859,7 @@
 	"layout.resizeMenu": "بائیں مینو کا سائز تبدیل کریں",
 	"nav.loadingPage": "صفحہ لوڈ ہو رہا ہے",
 	"message.blockRemote": "بیرونی مواد بلاک کریں",
-	"message.allowRemote": "بیرونی مواد کی اجازت دیں"
+	"message.allowRemote": "بیرونی مواد کی اجازت دیں",
+	"settings.account.generalTitle": "عمومی",
+	"settings.account.generalDescription": "آپ کے اکاؤنٹ کی زبان اور ٹائم زون۔"
 }
