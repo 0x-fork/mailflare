@@ -1858,5 +1858,10 @@
 	"importPage.importAll": "Importar todas as mensagens (as mais recentes primeiro, em lotes)",
 	"importPage.useTls": "Usar TLS",
 	"importPage.imapNote": "O IMAP importa automaticamente as seções de origem selecionadas. As pastas são descobertas na conta de origem e importadas para pastas novas ou existentes do Mailflare.",
-	"importPage.importSources": "Importar as origens selecionadas"
+	"importPage.importSources": "Importar as origens selecionadas",
+	"layout.resizeMenu": "Redimensionar menu lateral",
+	"nav.loadingPage": "Carregando página",
+	"message.blockRemote": "Bloquear conteúdo remoto",
+	"message.allowRemote": "Permitir conteúdo remoto",
+	"settingsPage.rules.title": "Regras"
 }

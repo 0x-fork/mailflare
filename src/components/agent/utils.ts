@@ -1,4 +1,4 @@
-import { defaultTranslator, type Translator } from "@/lib/i18n/utils";
+import type { Translator } from "../../lib/i18n/utils";
 import type { KeyboardEvent } from "react";
 import type { AgentActionProposal, AgentDraftAction, AgentEmailReference, AgentEvent, AgentMessage, AgentTurn, QueuedAgentMessage } from "./types";
 
@@ -175,7 +175,7 @@ export function activeAgentTool(messages: AgentMessage[]): AgentMessage | null {
 	return null;
 }
 
-export function activeAgentToolLabel(name: string | null | undefined, t: Translator = defaultTranslator): string {
+export function activeAgentToolLabel(name: string | null | undefined, t: Translator): string {
 	return agentToolText(name, "running", t) ?? t("agent.tool.using");
 }
 
@@ -207,7 +207,7 @@ export function agentActionProposal(content: string): AgentActionProposal | null
 	return value && (value.action === "move_email" || value.action === "move_emails" || value.action === "mark_email_read" || value.action === "discard_draft") && (value.status === "pending_approval" || value.status === "processing" || value.status === "approved") ? value as AgentActionProposal : null;
 }
 
-export function agentToolLabel(name: string | null | undefined, state: AgentMessage["toolState"], content: string, t: Translator = defaultTranslator): { label: string; description: string } {
+export function agentToolLabel(name: string | null | undefined, state: AgentMessage["toolState"], content: string, t: Translator): { label: string; description: string } {
 	const fallback = (name ?? "Tool").replace(/_/g, " ");
 	const description = agentToolText(name, "description", t);
 	if (description === null) return { label: fallback.charAt(0).toUpperCase() + fallback.slice(1), description: t("agent.tool.fallbackDescription") };
