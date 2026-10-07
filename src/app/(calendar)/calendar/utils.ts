@@ -1,3 +1,4 @@
+import { defaultTranslator, type Translator } from "@/lib/i18n/utils";
 import type { CalendarEvent, CalendarEventTimes, EventGroup, EventResizeEdge } from "./types";
 import type { FolderColor } from "@/lib/folders/types";
 import type { CalendarRepeat } from "@/lib/calendar/types";
@@ -196,7 +197,7 @@ export function formatEventRange(event: CalendarEvent): string {
   return `${formatEventTime(start)} – ${formatEventTime(end)}`;
 }
 
-export function groupUpcomingEvents(events: CalendarEvent[], today: Date): EventGroup[] {
+export function groupUpcomingEvents(events: CalendarEvent[], today: Date, t: Translator = defaultTranslator): EventGroup[] {
   const todayStart = startOfDay(today);
   const tomorrowStart = addDays(todayStart, 1);
   const groups: EventGroup[] = [];
@@ -206,9 +207,9 @@ export function groupUpcomingEvents(events: CalendarEvent[], today: Date): Event
     if (eventDate < todayStart) continue;
     const key = dateKey(eventDate);
     const label = key === dateKey(todayStart)
-      ? "Today"
+      ? t("calendar.today")
       : key === dateKey(tomorrowStart)
-        ? "Tomorrow"
+        ? t("calendar.tomorrow")
         : formatUserDate(eventDate, { month: "short", day: "numeric", year: "numeric" });
     const lastGroup = groups[groups.length - 1];
     if (lastGroup?.key === key) lastGroup.events.push(event);
