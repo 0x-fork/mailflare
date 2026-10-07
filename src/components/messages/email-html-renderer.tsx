@@ -1,5 +1,6 @@
 "use client";
 
+import { useLanguage } from "@/components/language-provider";
 import { useEffect, useRef, useState } from "react";
 import { prepareEmailHtml } from "@/lib/email/html";
 import { collapseQuotedEmailHtml } from "@/app/(dashboard)/inbox/[messageId]/quote-collapse-utils";
@@ -16,6 +17,7 @@ const BASE_STYLE = `
 export function EmailHtmlRenderer({ html, className, preserveLeadingQuote = false }: {
 	html: string; className?: string; preserveLeadingQuote?: boolean;
 }) {
+	const { t } = useLanguage();
 	const host = useRef<HTMLDivElement>(null);
 	const [allowedSource, setAllowedSource] = useState<string | null>(null);
 	const [hasRemote, setHasRemote] = useState(false);
@@ -54,7 +56,7 @@ export function EmailHtmlRenderer({ html, className, preserveLeadingQuote = fals
 		{hasRemote && <div className="mb-2 flex justify-end">
 			<button type="button" aria-pressed={allowRemote} className="rounded px-2 py-1 text-xs text-blue-600 hover:bg-blue-50"
 				onClick={() => setAllowedSource(allowRemote ? null : html)}>
-				{allowRemote ? "Block remote content" : "Allow remote content"}
+				{allowRemote ? t("message.blockRemote") : t("message.allowRemote")}
 			</button>
 		</div>}
 		<div className="max-w-full overflow-x-auto" ref={host} />

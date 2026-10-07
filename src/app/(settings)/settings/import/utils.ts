@@ -1,3 +1,4 @@
+import { defaultTranslator, type Translator } from "@/lib/i18n/utils";
 import { authFetch } from "@/lib/auth/client";
 import type {
 	ImapFormState,
@@ -139,9 +140,9 @@ export async function fetchImapFolders(form: ImapFormState): Promise<string[]> {
 	return data.folders ?? [];
 }
 
-export function formatImportResult(result: ImportResult | null): string {
+export function formatImportResult(result: ImportResult | null, t: Translator = defaultTranslator): string {
 	if (!result) return "";
-	return `${result.imported ?? 0} imported, ${result.skipped ?? 0} skipped`;
+	return t("import.summary", { imported: result.imported ?? 0, skipped: result.skipped ?? 0 });
 }
 
 function findFolderMatch(folders: string[], aliases: string[]): string | null {

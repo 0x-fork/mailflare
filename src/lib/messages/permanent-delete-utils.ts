@@ -1,22 +1,27 @@
 import type { PermanentDeleteFolder } from "@/app/api/messages/bulk/types";
+import { defaultTranslator, type Translator } from "../i18n/utils";
 
-const folderLabels: Record<PermanentDeleteFolder, string> = { trash: "Trash", spam: "Spam" };
+const folderLabelKeys = { trash: "navigation.trash", spam: "navigation.spam" } as const;
+
+export function getPermanentDeleteFolderLabel(folder: PermanentDeleteFolder, t: Translator = defaultTranslator): string {
+	return t(folderLabelKeys[folder]);
+}
 
 /** Whether the folder being viewed offers "Delete forever" and "Empty …". */
 export function supportsPermanentDelete(folder: string | null | undefined): folder is PermanentDeleteFolder {
 	return folder === "trash" || folder === "spam";
 }
 
-export function getEmptyFolderLabel(folder: PermanentDeleteFolder): string {
-	return `Empty ${folderLabels[folder]}`;
+export function getEmptyFolderLabel(folder: PermanentDeleteFolder, t: Translator = defaultTranslator): string {
+	return t("list.emptyFolder", { folder: getPermanentDeleteFolderLabel(folder, t) });
 }
 
-export function getPermanentDeleteConfirmText(count: number): string {
-	const subject = count === 1 ? "this message" : `these ${count} messages`;
-	return `Permanently delete ${subject}? This cannot be undone.`;
+export function getPermanentDeleteConfirmText(count: number, t: Translator = defaultTranslator): string {
+	return t("delete.confirm", { count });
 }
 
-export function getEmptyFolderConfirmText(folder: PermanentDeleteFolder, total?: number): string {
-	const what = total === 1 ? "the 1 message" : total && total > 1 ? `all ${total} messages` : "every message";
-	return `Permanently delete ${what} in ${folderLabels[folder]}? This cannot be undone.`;
+export function getEmptyFolderConfirmText(folder: PermanentDeleteFolder, total?: number, t: Translator = defaultTranslator): string {
+	const vars = { count: total ?? 0, folder: getPermanentDeleteFolderLabel(folder, t) };
+	if (total === 1) return t("empty.confirm.single", vars);
+	return total && total > 1 ? t("empty.confirm.multiple", vars) : t("empty.confirm.all", vars);
 }

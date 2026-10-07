@@ -35,6 +35,7 @@ Want to support the mailflare? <a target="_blank" href="https://store.paymug.co/
 - **Admin**: Manage users, permissions, API keys, webhooks, audit logs, and backups.
 - **AI assistant**: Search your mail, draft replies, and manage calendar events with AI.
 - **MCP access**: Connect AI clients over MCP, with separate permissions for each key.
+- **Languages**: Use the interface in English, Português (Brasil), Español, Français, Deutsch, Русский, 中文（简体）, 日本語, Bahasa Indonesia, Türkçe, Tiếng Việt, हिन्दी, বাংলা, or العربية (right-to-left).
 
 ## How it works
 
@@ -133,6 +134,12 @@ The Cloudflare app uses vinext and the Cloudflare Vite plugin, with local D1, R2
 - `npm run deploy`: build and deploy.
 
 The Node/Docker runtime still uses Next.js with `build:node`, `start:node`, and `dev:node`.
+
+## Languages
+
+Everyone can switch language from the homepage or sign-in page, and signed-in users can set it under **Settings → Account → General**, next to their time zone. The choice is kept in a cookie, so server-rendered pages use it too.
+
+To add a language, create a catalog next to `src/lib/i18n/en.json` with the same keys, then register it in `src/lib/i18n/locales.ts` with its native name (add `dir: "rtl"` for right-to-left scripts). The selector, validation, and cookie handling pick it up from that registry. Missing keys fall back to English. English ships in the main bundle; other catalogs load on demand.
 
 ## Documentation
 

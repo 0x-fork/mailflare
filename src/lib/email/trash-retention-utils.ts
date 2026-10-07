@@ -1,3 +1,5 @@
+import { defaultTranslator, type Translator } from "../i18n/utils";
+
 /** Choices offered in Settings; any whole number in range is accepted by the API. */
 export const TRASH_RETENTION_OPTIONS = [7, 14, 30, 60, 90] as const;
 export const MIN_TRASH_RETENTION_DAYS = 1;
@@ -19,7 +21,7 @@ export function normalizeTrashRetentionDays(value: unknown): number | null {
 	return value;
 }
 
-export function describeTrashRetention(days: number | null): string {
-	if (!days) return "Never";
-	return days === 1 ? "After 1 day" : `After ${days} days`;
+export function describeTrashRetention(days: number | null, t: Translator = defaultTranslator): string {
+	if (!days) return t("settings.trash.never");
+	return t("settings.trash.afterDay", { count: days });
 }

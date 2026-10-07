@@ -1,11 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useLanguage } from "@/components/language-provider";
 import { authFetch } from "@/lib/auth/client";
 import { TRASH_RETENTION_OPTIONS, describeTrashRetention } from "@/lib/email/trash-retention-utils";
 import type { TrashRetentionSettingsResponse } from "@/app/api/settings/trash-retention/types";
 
 export function TrashRetentionSettings() {
+	const { t } = useLanguage();
 	const [days, setDays] = useState<number | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
@@ -14,10 +16,10 @@ export function TrashRetentionSettings() {
 		void authFetch("/api/settings/trash-retention")
 			.then(async (response) => {
 				const data = await response.json() as TrashRetentionSettingsResponse;
-				if (!response.ok) throw new Error(typeof data.error === "string" ? data.error : "Failed to load clean-up settings");
+				if (!response.ok) throw new Error(typeof data.error === "string" ? data.error : t("settings.trash.loadFailed"));
 				setDays(data.days ?? null);
 			})
-			.catch((nextError) => setError(nextError instanceof Error ? nextError.message : "Failed to load clean-up settings"))
+			.catch((nextError) => setError(nextError instanceof Error ? nextError.message : t("settings.trash.loadFailed")))
 			.finally(() => setLoading(false));
 	}, []);
 
@@ -33,11 +35,11 @@ export function TrashRetentionSettings() {
 				body: JSON.stringify({ days: nextDays }),
 			});
 			const data = await response.json() as TrashRetentionSettingsResponse;
-			if (!response.ok) throw new Error(typeof data.error === "string" ? data.error : "Failed to update clean-up settings");
+			if (!response.ok) throw new Error(typeof data.error === "string" ? data.error : t("settings.trash.updateFailed"));
 			setDays(data.days ?? null);
 		} catch (nextError) {
 			setDays(previous);
-			setError(nextError instanceof Error ? nextError.message : "Failed to update clean-up settings");
+			setError(nextError instanceof Error ? nextError.message : t("settings.trash.updateFailed"));
 		} finally {
 			setLoading(false);
 		}
@@ -52,9 +54,9 @@ export function TrashRetentionSettings() {
 		<div>
 			<label className="flex items-start gap-3 rounded-xl bg-neutral-50 p-4">
 				<span className="flex-1">
-					<span className="block text-sm font-medium text-neutral-900">Auto-delete Trash and Spam</span>
+					<span className="block text-sm font-medium text-neutral-900">{t("settings.trash.title")}</span>
 					<span className="mt-1 block text-sm text-neutral-500">
-						Permanently delete messages once they have been in Trash or Spam for this long. Applies to the mailboxes you own.
+						{t("settings.trash.description")}
 					</span>
 				</span>
 				<select
@@ -62,11 +64,11 @@ export function TrashRetentionSettings() {
 					disabled={loading}
 					onChange={(event) => void updateDays(event.target.value ? Number(event.target.value) : null)}
 					className="rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-sm text-neutral-800 disabled:opacity-60"
-					aria-label="Auto-delete Trash and Spam"
+					aria-label={t("settings.trash.title")}
 				>
-					<option value="">{describeTrashRetention(null)}</option>
+					<option value="">{describeTrashRetention(null, t)}</option>
 					{options.map((value) => (
-						<option key={value} value={value}>{describeTrashRetention(value)}</option>
+						<option key={value} value={value}>{describeTrashRetention(value, t)}</option>
 					))}
 				</select>
 			</label>
