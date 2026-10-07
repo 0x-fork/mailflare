@@ -4,7 +4,6 @@ import packageJson from "../../package.json";
 import { useSidebar } from "./sidebar-state";
 import { useShortcuts } from "./shortcuts";
 import { Keyboard } from "lucide-react";
-import { LanguageSelector } from "./language-selector";
 import { useLanguage } from "./language-provider";
 
 export function SidebarFooter() {
@@ -15,7 +14,6 @@ export function SidebarFooter() {
 
   return (
     <div className="px-3 pt-3 flex flex-col gap-2">
-      <LanguageSelector />
       {shortcutsEnabled && !shortcutsPreferenceLoading && (
         <button
           type="button"

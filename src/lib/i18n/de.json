@@ -379,6 +379,8 @@
 	"common.loading": "Wird geladen...",
 	"settings.account.loadFailed": "Das Konto konnte nicht geladen werden",
 	"settings.account.detailsTitle": "Kontodetails",
+	"settings.account.generalTitle": "Allgemein",
+	"settings.account.generalDescription": "Sprache und Zeitzone für dein Konto.",
 	"settings.account.detailsDescription": "Verwalten Sie Ihre Identität, Wiederherstellungsoptionen und E-Mail-Einstellungen.",
 	"settings.account.forwardingTitle": "Weiterleitungs-E-Mail",
 	"settings.account.forwardingDescription": "Senden Sie eine Kopie eingehender Nachrichten an eine andere E-Mail-Adresse.",

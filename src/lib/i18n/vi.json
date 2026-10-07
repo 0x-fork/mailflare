@@ -375,6 +375,8 @@
 	"common.loading": "Đang tải...",
 	"settings.account.loadFailed": "Không thể tải tài khoản",
 	"settings.account.detailsTitle": "Chi tiết tài khoản",
+	"settings.account.generalTitle": "Chung",
+	"settings.account.generalDescription": "Ngôn ngữ và múi giờ cho tài khoản của bạn.",
 	"settings.account.detailsDescription": "Quản lý danh tính, tùy chọn khôi phục và tùy chọn email của bạn.",
 	"settings.account.forwardingTitle": "Email chuyển tiếp",
 	"settings.account.forwardingDescription": "Gửi bản sao các thư đến tới một địa chỉ email khác.",

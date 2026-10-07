@@ -375,6 +375,8 @@
 	"common.loading": "読み込み中…",
 	"settings.account.loadFailed": "アカウントを読み込めませんでした",
 	"settings.account.detailsTitle": "アカウントの詳細",
+	"settings.account.generalTitle": "一般",
+	"settings.account.generalDescription": "アカウントの言語とタイムゾーン。",
 	"settings.account.detailsDescription": "ID、復旧オプション、メールの設定を管理します。",
 	"settings.account.forwardingTitle": "転送メール",
 	"settings.account.forwardingDescription": "受信メールのコピーを別のメールアドレスに送信します。",

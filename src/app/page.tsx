@@ -47,8 +47,8 @@ export default async function HomePage() {
 				</nav> */}
 
         <div className="flex items-center gap-2">
-          <div className="hidden w-44 sm:block">
-            <LanguageSelector />
+          <div className="hidden sm:block">
+            <LanguageSelector variant="text" />
           </div>
           <HomeHeaderActions />
         </div>

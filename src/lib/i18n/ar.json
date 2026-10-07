@@ -395,6 +395,8 @@
 	"common.loading": "جارٍ التحميل...",
 	"settings.account.loadFailed": "فشل تحميل الحساب",
 	"settings.account.detailsTitle": "تفاصيل الحساب",
+	"settings.account.generalTitle": "عام",
+	"settings.account.generalDescription": "اللغة والمنطقة الزمنية لحسابك.",
 	"settings.account.detailsDescription": "أدِر هويتك وخيارات الاسترداد وتفضيلات البريد.",
 	"settings.account.forwardingTitle": "بريد إعادة التوجيه",
 	"settings.account.forwardingDescription": "أرسل نسخة من الرسائل الواردة إلى عنوان بريد آخر.",

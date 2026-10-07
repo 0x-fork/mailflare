@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useLanguage } from "@/components/language-provider";
+import { LanguageSelector } from "@/components/language-selector";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ForwardingEmailForm } from "./forwarding-email-form";
 import { MailboxSignatureForm } from "./mailbox-signature-form";
@@ -63,8 +64,6 @@ export function AccountSettings() {
 						email={user.email}
 					/>
 
-					<TimeZoneForm userId={user.id} initialTimeZone={user.timeZone} />
-
 					{user.canForwardEmail && (
 						<div className="space-y-4 rounded-lg bg-white p-6">
 							<div>
@@ -85,6 +84,19 @@ export function AccountSettings() {
 				</div>
 			</section>
 
+			<section className="space-y-4">
+				<div>
+					<h2 className="text-xl font-semibold text-neutral-900">{t("settings.account.generalTitle")}</h2>
+					<p className="mt-1 text-sm text-neutral-500">{t("settings.account.generalDescription")}</p>
+				</div>
+				<div className="space-y-1 overflow-hidden rounded-3xl">
+					<div className="rounded-t-3xl rounded-b-lg bg-white p-6">
+						<h3 className="mb-3 text-lg font-semibold text-neutral-900">{t("language.label")}</h3>
+						<div className="max-w-xs [&>div]:px-0 [&_label]:sr-only"><LanguageSelector /></div>
+					</div>
+					<TimeZoneForm userId={user.id} initialTimeZone={user.timeZone} />
+				</div>
+			</section>
 		</div>
 	);
 }

@@ -1859,5 +1859,7 @@
 	"layout.resizeMenu": "বাম মেনুর আকার পরিবর্তন করুন",
 	"nav.loadingPage": "পৃষ্ঠা লোড হচ্ছে",
 	"message.blockRemote": "দূরবর্তী বিষয়বস্তু ব্লক করুন",
-	"message.allowRemote": "দূরবর্তী বিষয়বস্তুর অনুমতি দিন"
+	"message.allowRemote": "দূরবর্তী বিষয়বস্তুর অনুমতি দিন",
+	"settings.account.generalTitle": "সাধারণ",
+	"settings.account.generalDescription": "আপনার অ্যাকাউন্টের ভাষা ও টাইম জোন।"
 }

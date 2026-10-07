@@ -379,6 +379,8 @@
 	"common.loading": "Loading...",
 	"settings.account.loadFailed": "Failed to load account",
 	"settings.account.detailsTitle": "Account details",
+	"settings.account.generalTitle": "General",
+	"settings.account.generalDescription": "Language and time zone for your account.",
 	"settings.account.detailsDescription": "Manage your identity, recovery options, and email preferences.",
 	"settings.account.forwardingTitle": "Forwarding email",
 	"settings.account.forwardingDescription": "Send a copy of incoming messages to another email address.",

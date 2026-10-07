@@ -379,6 +379,8 @@
 	"common.loading": "Carregando...",
 	"settings.account.loadFailed": "Falha ao carregar a conta",
 	"settings.account.detailsTitle": "Detalhes da conta",
+	"settings.account.generalTitle": "Geral",
+	"settings.account.generalDescription": "Idioma e fuso horário da sua conta.",
 	"settings.account.detailsDescription": "Gerencie sua identidade, opções de recuperação e preferências de e-mail.",
 	"settings.account.forwardingTitle": "E-mail de encaminhamento",
 	"settings.account.forwardingDescription": "Envie uma cópia das mensagens recebidas para outro endereço de e-mail.",

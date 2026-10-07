@@ -379,6 +379,8 @@
 	"common.loading": "लोड हो रहा है...",
 	"settings.account.loadFailed": "खाता लोड नहीं हो सका",
 	"settings.account.detailsTitle": "खाते का विवरण",
+	"settings.account.generalTitle": "सामान्य",
+	"settings.account.generalDescription": "आपके खाते की भाषा और समय क्षेत्र।",
 	"settings.account.detailsDescription": "अपनी पहचान, रिकवरी विकल्प और ईमेल प्राथमिकताएँ प्रबंधित करें।",
 	"settings.account.forwardingTitle": "फ़ॉरवर्डिंग ईमेल",
 	"settings.account.forwardingDescription": "आने वाले संदेशों की एक प्रति किसी अन्य ईमेल पते पर भेजें।",

@@ -379,6 +379,8 @@
 	"common.loading": "Cargando...",
 	"settings.account.loadFailed": "No se pudo cargar la cuenta",
 	"settings.account.detailsTitle": "Detalles de la cuenta",
+	"settings.account.generalTitle": "General",
+	"settings.account.generalDescription": "Idioma y zona horaria de tu cuenta.",
 	"settings.account.detailsDescription": "Gestiona tu identidad, las opciones de recuperación y tus preferencias de correo.",
 	"settings.account.forwardingTitle": "Correo de reenvío",
 	"settings.account.forwardingDescription": "Envía una copia de los mensajes entrantes a otra dirección de correo.",

@@ -383,6 +383,8 @@
 	"common.loading": "Загрузка...",
 	"settings.account.loadFailed": "Не удалось загрузить аккаунт",
 	"settings.account.detailsTitle": "Данные аккаунта",
+	"settings.account.generalTitle": "Общие",
+	"settings.account.generalDescription": "Язык и часовой пояс вашего аккаунта.",
 	"settings.account.detailsDescription": "Управляйте своими данными, способами восстановления и настройками почты.",
 	"settings.account.forwardingTitle": "Адрес для пересылки",
 	"settings.account.forwardingDescription": "Отправляйте копию входящих сообщений на другой адрес электронной почты.",

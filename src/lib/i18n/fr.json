@@ -379,6 +379,8 @@
 	"common.loading": "Chargement...",
 	"settings.account.loadFailed": "Échec du chargement du compte",
 	"settings.account.detailsTitle": "Détails du compte",
+	"settings.account.generalTitle": "Général",
+	"settings.account.generalDescription": "Langue et fuseau horaire de votre compte.",
 	"settings.account.detailsDescription": "Gérez votre identité, vos options de récupération et vos préférences d'e-mail.",
 	"settings.account.forwardingTitle": "E-mail de transfert",
 	"settings.account.forwardingDescription": "Envoyez une copie des messages entrants à une autre adresse e-mail.",

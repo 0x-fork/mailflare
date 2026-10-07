@@ -375,6 +375,8 @@
 	"common.loading": "Memuat...",
 	"settings.account.loadFailed": "Gagal memuat akun",
 	"settings.account.detailsTitle": "Detail akun",
+	"settings.account.generalTitle": "Umum",
+	"settings.account.generalDescription": "Bahasa dan zona waktu untuk akun Anda.",
 	"settings.account.detailsDescription": "Kelola identitas, opsi pemulihan, dan preferensi email Anda.",
 	"settings.account.forwardingTitle": "Email penerusan",
 	"settings.account.forwardingDescription": "Kirim salinan pesan masuk ke alamat email lain.",
