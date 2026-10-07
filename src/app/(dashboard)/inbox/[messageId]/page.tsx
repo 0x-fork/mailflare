@@ -3,6 +3,7 @@
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Cloud, ExternalLink } from "lucide-react";
+import { useLanguage } from "@/components/language-provider";
 import { formatUserDate } from "@/lib/time/utils";
 import { MarkAsRead } from "@/components/mark-read";
 import { useSelectedMailbox } from "@/components/mailbox-provider";
@@ -42,6 +43,7 @@ import { useAssistantOpen } from "@/components/agent/assistant-open-state";
 import { useMessageContentScroll } from "./use-message-content-scroll";
 
 export default function MessageDetailPage() {
+  const { t } = useLanguage();
   const params = useParams<{ messageId: string }>();
   const { selectedMailbox, mailboxes } = useSelectedMailbox();
   const messageId = params.messageId;
@@ -101,7 +103,7 @@ export default function MessageDetailPage() {
   if (!data?.message) {
     return (
       <p className="px-6 py-4 text-sm text-neutral-500">
-        {data?.error ?? "Message not found"}
+        {data?.error ?? t("message.notFound")}
       </p>
     );
   }
@@ -180,8 +182,8 @@ export default function MessageDetailPage() {
     <div ref={scrollRef} onScroll={handleScroll} className="h-full overflow-y-auto overscroll-contain scrollbar-gutter-stable flex-1 min-h-0">
       {!message.read && <MarkAsRead messageId={message.id} />}
 
-      <h1 className={clsx(!isAnyPanelVisible ? "pl-16" : "pl-10", "pr-6 pb-2 pt-2 text-2xl text-neutral-900")} title={message.subject ?? "(no subject)"}>
-        {message.subject ?? "(no subject)"}
+      <h1 className={clsx(!isAnyPanelVisible ? "pl-16" : "pl-10", "pr-6 pb-2 pt-2 text-2xl text-neutral-900")} title={message.subject ?? t("list.noSubject")}>
+        {message.subject ?? t("list.noSubject")}
       </h1>
       {/* <div className="px-6">
         <div className="mx-auto w-full max-w-[640px]">
@@ -236,7 +238,7 @@ export default function MessageDetailPage() {
                   <span className="text-neutral-500 text-xs flex-1 overflow-hidden text-ellipsis min-w-0">&lt;{fromAddress}&gt;</span>
                 </p>
                 <p className="text-xs text-neutral-500">
-                  to{" "}
+                  {t("source.to").toLowerCase()}{" "}
                   <RecipientList
                     entries={toEntries}
                     mailboxId={message.mailboxId}
@@ -245,12 +247,12 @@ export default function MessageDetailPage() {
                 </p>
                 {ccEntries.length > 0 && (
                   <p className="text-xs text-neutral-500">
-                    cc <RecipientList entries={ccEntries} mailboxId={message.mailboxId} style={showFullRecipientAddresses ? "full" : "address"} />
+                    {t("message.cc")} <RecipientList entries={ccEntries} mailboxId={message.mailboxId} style={showFullRecipientAddresses ? "full" : "address"} />
                   </p>
                 )}
                 {bccEntries.length > 0 && (
                   <p className="text-xs text-neutral-500">
-                    bcc <RecipientList entries={bccEntries} mailboxId={message.mailboxId} style={showFullRecipientAddresses ? "full" : "address"} />
+                    {t("message.bcc")} <RecipientList entries={bccEntries} mailboxId={message.mailboxId} style={showFullRecipientAddresses ? "full" : "address"} />
                   </p>
                 )}
               </div>
@@ -287,7 +289,7 @@ export default function MessageDetailPage() {
           {cloudAttachmentResult.attachments.length > 0 && (
             <section className="mt-8 border-t border-neutral-100 py-6 pl-16">
               <h2 className="mb-3 text-sm font-semibold text-neutral-900">
-                Cloud files ({cloudAttachmentResult.attachments.length})
+                {t("message.cloudFiles", { count: cloudAttachmentResult.attachments.length })}
               </h2>
               <div className="grid gap-2 sm:grid-cols-2">
                 {cloudAttachmentResult.attachments.map((attachment) => (
@@ -304,7 +306,7 @@ export default function MessageDetailPage() {
                         {attachment.filename}
                       </span>
                       <span className="block text-xs text-neutral-500">
-                        Open from {attachment.provider}
+                        {t("message.openFrom", { provider: attachment.provider })}
                       </span>
                     </span>
                     <ExternalLink className="h-4 w-4 shrink-0 text-neutral-400" />
@@ -316,7 +318,7 @@ export default function MessageDetailPage() {
           {attachments.length > 0 && (
             <section className="mt-8 border-t border-neutral-100 py-6 pl-16">
               <h2 className="mb-3 text-sm font-semibold text-neutral-900">
-                Attachments ({attachments.length})
+                {t("message.attachments", { count: attachments.length })}
               </h2>
               <div className="grid gap-2 sm:grid-cols-2">
                 {attachments.map((attachment) => (
