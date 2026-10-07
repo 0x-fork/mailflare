@@ -117,7 +117,8 @@ export function DashboardNav({ className }: { className?: string }) {
     useState<FolderColor>(DEFAULT_FOLDER_COLOR);
   const [addingFolder, setAddingFolder] = useState(false);
   const [folderDialogOpen, setFolderDialogOpen] = useState(false);
-  const linksWithCounts: NavLink[] = links.map(({ labelKey, ...link }) => ({ ...link, label: t(labelKey) })).map((link): NavLink => {
+  const linksWithCounts: NavLink[] = links.map(({ labelKey, ...rest }): NavLink => {
+    const link = { ...rest, label: t(labelKey) };
     if (link.href === "/inbox") {
       return { ...link, count: getFolderNavCount("inbox", counts.folders) };
     }
@@ -266,7 +267,7 @@ export function DashboardNav({ className }: { className?: string }) {
                   <Plus className="h-4 w-4" />
                 </button>
               </DialogTrigger>
-              <DialogContent closeLabel={t("navigation.close")}>
+              <DialogContent>
                 <DialogHeader>
                   <DialogTitle>{t("navigation.createFolder")}</DialogTitle>
                   <DialogDescription>

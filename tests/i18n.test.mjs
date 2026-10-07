@@ -47,7 +47,7 @@ async function bundleI18n(outfile, extraLocale = false) {
 			setup(builder) {
 				if (extraLocale) builder.onLoad({ filter: /\/i18n\/locales\.ts$/ }, ({ path }) => ({
 					contents: readFileSync(path, "utf8").replace("export const locales = {", `export const locales = {
-						es: { label: "Español", messages: { ...en, "navigation.inbox": "Entrada", "language.label": "Idioma" } },`),
+						es: { label: "Español", dir: "rtl", messages: { ...en, "navigation.inbox": "Entrada", "navigation.inbox.one": "{count} entrada", "navigation.inbox.other": "{count} entradas", "language.label": "Idioma" } },`),
 					loader: "ts",
 				}));
 				builder.onResolve({ filter: /^(next\/headers|next\/font\/google|@\/components\/providers)$/ }, (args) => ({ path: args.path, namespace: "stub" }));
@@ -125,7 +125,19 @@ test("a locale registered once reaches resolution, translation, cookie, selector
 	const layout = await extended.renderLayout("es");
 	assert.match(layout, /<html lang="es"/);
 	assert.match(layout, />Entrada<\/span>/);
+	assert.match(layout, /<html lang="es" dir="rtl"/);
+	const t = extended.createTranslator("es");
+	assert.equal(t("navigation.inbox", { count: 1 }), "1 entrada");
+	assert.equal(t("navigation.inbox", { count: 3 }), "3 entradas");
+	assert.equal(t("navigation.inbox"), "Entrada");
 	for (const invalid of ["constructor", "toString", "__proto__"]) {
 		assert.equal(extended.resolveLocale(invalid), "en");
 	}
+});
+
+test("translations interpolate {vars}, keep unknown placeholders and default to ltr", () => {
+	assert.equal(i18n.translate({ "navigation.inbox": "Hi {name}, {other}" }, "navigation.inbox", { name: "Ana", count: 2 }), "Hi Ana, {other}");
+	assert.equal(i18n.translate({}, "navigation.inbox", { name: "x" }), "Inbox");
+	assert.equal(i18n.createTranslator("pt-BR")("navigation.inbox", { count: 2 }), "Caixa de entrada");
+	assert.equal(i18n.getDirection("en"), "ltr");
 });

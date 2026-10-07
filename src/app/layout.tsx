@@ -3,7 +3,7 @@ import { cookies } from "next/headers";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Providers } from "@/components/providers";
 import { LanguageProvider } from "@/components/language-provider";
-import { LOCALE_COOKIE, resolveLocale } from "@/lib/i18n/utils";
+import { LOCALE_COOKIE, getDirection, resolveLocale } from "@/lib/i18n/utils";
 import { sidebarBootstrapScript } from "@/components/sidebar-state-utils";
 import { themeBootstrapScript } from "@/components/theme-utils";
 import "./globals.css";
@@ -41,7 +41,7 @@ export const metadata: Metadata = {
 export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
 	const locale = resolveLocale((await cookies()).get(LOCALE_COOKIE)?.value);
 	return (
-		<html lang={locale} suppressHydrationWarning>
+		<html lang={locale} dir={getDirection(locale)} suppressHydrationWarning>
 			<head>
 				<script dangerouslySetInnerHTML={{ __html: sidebarBootstrapScript }} />
 				<script dangerouslySetInnerHTML={{ __html: themeBootstrapScript }} />
