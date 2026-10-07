@@ -43,6 +43,14 @@ Paste only the token secret into the `CF_TOKEN` field in step 2. Do not include 
 5. Start the deployment and wait for Cloudflare to finish provisioning and deploying the Worker.
 
 
+### Optional Web Push configuration
+
+To enable background new-mail notifications, run `npm run push:keys` once and
+store `VAPID_PRIVATE_KEY` as a Worker secret. Configure `VAPID_PUBLIC_KEY` and
+`VAPID_SUBJECT` as Worker variables; the subject must be a `mailto:` URI or the
+public HTTPS URL of the installation. The same VAPID key pair should be kept
+across deployments so existing browser subscriptions remain valid.
+
 ## Step 3: Complete mailflare setup
 
 1. Open the URL of the deployed `mailflare` Worker.

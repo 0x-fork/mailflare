@@ -7,6 +7,7 @@ import { InboxShortcutsSettings } from "@/components/settings/inbox-shortcuts-se
 import { MailboxAutoReplyForm } from "@/components/settings/mailbox-auto-reply-form";
 import { SpamFilterSettings } from "@/components/settings/spam-filter-settings";
 import { TrashRetentionSettings } from "@/components/settings/trash-retention-settings";
+import { PushNotificationSettings } from "@/components/settings/push-notification-settings";
 import { BrowserNotificationSettings } from "@/components/settings/browser-notification-settings";
 
 export default async function SettingsInboxPage() {
@@ -60,6 +61,9 @@ export default async function SettingsInboxPage() {
 							<p className="mt-1 text-sm text-neutral-500">{t("settingsPage.inbox.notificationsDescription")}</p>
 						</div>
 						<BrowserNotificationSettings />
+						<div className="mt-4">
+							<PushNotificationSettings />
+						</div>
 					</div>
 				</div>
 			</section>
