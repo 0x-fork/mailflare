@@ -6,9 +6,11 @@ import { clearMailboxClientState } from "@/components/mailbox-provider-utils";
 import { BrandingProvider } from "@/components/branding-provider";
 import { NewMessagePopup } from "@/components/new-message-popup";
 import { PwaServiceWorker } from "@/components/pwa-service-worker";
+import { ThemeSync } from "@/components/theme-sync";
 import { useMessagePolling } from "@/hooks/use-message-polling";
 import { clearMessageClientState } from "@/hooks/utils";
 import { clearMessageDetailCache } from "@/lib/messages/detail-cache";
+import { clearCurrentUserCache } from "@/hooks/use-current-user";
 import { AUTH_SESSION_CHANGED_EVENT } from "@/lib/auth/client";
 
 export function Providers({ children }: { children: React.ReactNode }) {
@@ -34,6 +36,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
 			clearMailboxClientState();
 			clearMessageClientState();
 			clearMessageDetailCache();
+			clearCurrentUserCache();
 		}
 
 		window.addEventListener(AUTH_SESSION_CHANGED_EVENT, resetUserScopedState);
@@ -45,6 +48,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
 			<BrandingProvider>
 				<PwaServiceWorker />
 				{children}
+				<ThemeSync />
 				{realtime.notification && (
 					<NewMessagePopup
 						notification={realtime.notification}

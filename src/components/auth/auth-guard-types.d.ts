@@ -7,4 +7,7 @@ export type AuthGuardProps = {
 	mode?: AuthGuardMode;
 	requireMailbox?: boolean;
 	requireRole?: "admin";
+	requirePrimary?: boolean;
+	/** Public page that stays usable while signed in (adding another account). */
+	allowAuthenticated?: boolean;
 };

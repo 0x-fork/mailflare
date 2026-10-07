@@ -5,18 +5,18 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Commands
 
 ```bash
-npm run dev                    # next dev (Cloudflare bindings via initOpenNextCloudflareForDev)
+npm run dev                    # Vite + vinext in local workerd
 npm run lint                   # eslint (next/core-web-vitals + next/typescript)
-npm run build                  # next build only — does NOT produce the deployable Worker
+npm run build                  # vinext build, including the complete Worker
 
 npm run db:generate            # drizzle-kit generate from src/db/schema/index.ts
 npm run db:migrate:local       # wrangler d1 migrations apply DB --local
 npm run db:migrate:remote      # --remote (needs a concrete database_id in wrangler.jsonc)
 npm run db:seed                # POST /api/seed against localhost:3000
 
-npm run deploy                 # opennextjs-cloudflare build + wrangler deploy
+npm run deploy                 # vinext build + wrangler deploy
 npm run deploy                 # build and deploy; migrate later from Admin settings
-npm run preview                # local OpenNext preview
+npm run preview                # build and preview the vinext Worker locally
 npm run cf-typegen             # regenerate cloudflare-env.d.ts from wrangler.jsonc
 ```
 
@@ -24,21 +24,21 @@ There is no test script in `package.json`; the checks under `tests/` are `node:t
 
 `next.config.ts` sets `typescript.ignoreBuildErrors: true` and `tsconfig.json` sets `noImplicitAny: false`, so the build will not catch type errors. Run `npx tsc --noEmit` if you want real type checking.
 
-Do not deploy with `opennextjs-cloudflare deploy`. The deploy script deliberately builds with OpenNext and uploads with Wrangler because `worker.ts` — not the generated Next worker — is the entrypoint.
+`npm run deploy` builds with vinext and uploads with Wrangler. The Cloudflare Vite plugin generates `dist/server/wrangler.json` and redirects Wrangler to it, preserving the custom `worker.ts` entrypoint.
 
 ## Architecture
 
-Next.js 16 App Router running on Cloudflare Workers via OpenNext. Drizzle ORM over D1, R2 for raw MIME, attachments, and record backups, Queues for async mail processing, a Durable Object for realtime, and a cron trigger for scheduled backups.
+Next.js App Router APIs running on Cloudflare Workers via vinext. Drizzle ORM over D1, R2 for raw MIME, attachments, and record backups, Queues for async mail processing, a Durable Object for realtime, and a cron trigger for scheduled backups.
 
 ### worker.ts is the entrypoint
 
-`worker.ts` wraps the generated `.open-next/worker.js` and adds handlers Next.js cannot express:
+`worker.ts` wraps `vinext/server/fetch-handler` and adds handlers Next.js cannot express:
 
-- **`fetch`** — intercepts `/api/realtime` for the WebSocket upgrade (authenticates the session cookie, then routes to `env.REALTIME.getByName(user.id)`), delegating everything else to Next.
+- **`fetch`** — intercepts `/api/realtime` for the WebSocket upgrade (authenticates the session cookie, then routes to `env.REALTIME.getByName(user.id)`), delegating everything else to vinext.
 - **`email`** — the Cloudflare Email Routing handler. Resolves domain routing rules first (`resolveIncomingMail` in `src/lib/email/incoming.ts`) because `message.setReject()` and `message.forward()` only exist here, then applies optional account-level forwarding (loop-guarded by the `MAILFLARE_FORWARDED_HEADER`), writes raw MIME to R2, and enqueues to `INBOUND_QUEUE`. It never parses mail inline.
 - **`queue`** — a single consumer for both queues; `isInboundQueueMessage` and `isWebhookRetryMessage` in `worker-utils.ts` discriminate inbound mail, webhook retries, and outbound payloads. Failures `retry({ delaySeconds: 10 })`.
 
-It also re-exports `RealtimeHub`, which is why that class must live outside the Next build.
+It also re-exports `RealtimeHub`, which must remain exported from the Worker entrypoint.
 
 ### Mail pipeline
 
@@ -49,6 +49,16 @@ Outbound: `src/lib/email/send.ts` / `sender.ts`, composing with mimetext and sen
 Composer: `src/components/compose/rich-text-editor.tsx` is a contentEditable HTML editor; the body is one HTML string and the text/plain part is derived with `htmlToPlainText` (`rich-text-utils.ts`). Quoted/forwarded content is wrapped by `wrapQuotedHtml` and folded by both the composer and the reader (`splitQuotedHtml`). Forward copies the source's attachments onto the draft (`copyMessageAttachments`); `/api/send` with `draftId` sends them.
 
 Threading: `resolveThreadId` in `src/lib/email/threading.ts` files an inbound or imported message under the thread of the stored message its `In-Reply-To`/`References` name (matched against `providerMessageId` in the same mailbox); otherwise its own Message-ID seeds a new thread. Outbound replies carry `inReplyTo`/`references`/`threadId` from the draft, and a fresh send is keyed by the Message-ID Cloudflare returns. `/api/messages/[id]/thread` returns the conversation. Lists pass `group=thread` (the "conversation view" toggle, `use-conversation-view.ts`) to get one row per thread plus `threadMessageIds`, which row actions and bulk actions expand to.
+
+### Sending and receiving providers are per domain
+
+`domains.sending_provider` (`none | cloudflare | resend | ses`) and `domains.receiving_provider` (`none | cloudflare | resend | ses`, default `cloudflare`) are chosen independently on the Domains page; DNS stays on Cloudflare either way. They record intent: switching a provider never touches DNS, each provider's own Setup does, and a **Clean up** button removes the config of an unselected provider.
+
+- **Sending** goes through `sendThroughProvider` (`src/lib/email/outbound-provider.ts`), which `deliverEmail` and `sendSystemEmail` call after `getOutboundProviderConfig(env, from)` resolves the provider from the From domain (`none` throws). Cloudflare keeps its 5 MiB link fallback; Resend and SES take attachments directly. Resend and SES return different Message-IDs than we send, so `providerMessageId` stores the one replies will carry (`<id@email.amazonses.com>` or `<id@region.amazonses.com>` for SES).
+- **Receiving** from a non-Cloudflare provider enters through `intakeProviderMail` (`src/lib/email/provider-intake.ts`) and then the same `intakeIncomingMail` as everything else, once per recipient on a known domain. Providers cannot be rejected to after accepting, so reject and size limits drop the message, and `forward` is unavailable. Inbound endpoints are public and authenticate themselves: `/api/inbound/resend` verifies the Svix signature (`svix.ts`) with the secret Resend returned when `ensureWebhook` created the hook (`app_settings.resend_webhook_secret`), then fetches the raw MIME from `raw.download_url`; `/api/inbound/ses` is an SNS HTTPS endpoint guarded by a secret token in its URL, the topic ARN and reading the object from our own bucket.
+- **Only one MX owner per domain.** `publishMx` (`receiving-dns.ts`) refuses with `MxConflictError` (HTTP 409 `MX_CONFLICT`) when other MX records exist; the UI confirms and retries with `replaceMx`. Cloudflare Worker routes (`ensureMailboxDomainRouting`) are created only for domains whose receiving provider is `cloudflare`.
+- **Resend** keeps one key (`app_settings.resend_api_key`, or `RESEND_API_KEY`) and one Resend domain per hostname carrying both capabilities, so sending cleanup disables only `sending` when the domain still receives through Resend and vice versa. Apex MX values matching `inbound-smtp.*.amazonaws.com` are receiving records; everything else is sending.
+- **AWS** (`src/lib/aws/`) is a hand-rolled SigV4 client (`sigv4.ts`, verified against AWS's published vectors in `tests/provider-aws-resend.test.mjs`) so it runs on Workers and Node without the SDK. Credentials live in `app_settings.aws_config` (or `AWS_*` env vars) and are validated before saving by `validateAwsConfig`, which proves identity with STS then probes SES, SNS and S3, reporting each missing permission with the IAM policy that grants it. SES sending uses SESv2 (`ses.ts`); receipt rules exist only in SES v1 (Query protocol), so receiving uses `awsQuery`. `setupSesReceiving` creates the S3 bucket and policy, SNS topic, policy and HTTPS subscription, then a per-domain receipt rule in the account's active rule set (creating `mailflare-inbound` only when none is active), and the MX. State is in `app_settings.ses_receiving`. SES inbound exists only in some regions (`SES_RECEIVING_REGIONS`) and needs a public HTTPS `APP_URL`.
 
 ### Routing rules have two scopes
 
@@ -81,7 +91,9 @@ The setup path only ever initializes an empty database — it refuses to touch o
 
 ### Two runtimes, one code path
 
-The app reaches every platform service through `getEnv()` (`src/lib/cloudflare.ts`). On Workers that is OpenNext's context. In the self-hosted runtime, `server/index.ts` builds an object with the same shape (`server/runtime/env.ts`: a D1-compatible wrapper over better-sqlite3, an R2-compatible file bucket, `EMAIL` over nodemailer or the Cloudflare Sending REST API, in-process queues, a WebSocket hub standing in for the Durable Object, a fixed-window rate limiter) and publishes it as `globalThis.__mailflareNodeEnv` before Next starts; `getNodeEnv()` in `src/lib/runtime.ts` returns it. Application code must not care which one it got. The few places that must differ check `isNodeRuntime(env)`: setup requirement checks, the self-update button, and domain provisioning, which without Cloudflare credentials records the zone as `"manual"` (`src/lib/domains/provision.ts`) so every Cloudflare call is a no-op and the DNS page lists records to set by hand. Inbound mail off Workers goes through `intakeIncomingMail` (`src/lib/email/intake.ts`) from either the SMTP listener (`server/runtime/smtp.ts`) or the signed `/api/inbound` webhook the relay Worker in `deploy/cloudflare-email-relay` calls. `npm run build:node` builds Next in Node mode and bundles the server with esbuild to `dist/server.mjs`; the Dockerfile runs that. Migrations are applied from `drizzle/migrations` at start (`server/runtime/migrate.ts`), so the bootstrap schema in `src/lib/setup/migration.ts` is not used there.
+The Node build aliases `cloudflare:workers` to `server/runtime/cloudflare-workers.ts`, allowing the shared helper to use its existing `getNodeEnv()` fallback. That alias only applies when `MAILFLARE_RUNTIME=node`; vinext uses the native Workers module. Next outputs to `.next-node` so its generated types do not collide with vinext's `.next/types`.
+
+The app reaches every platform service through `getEnv()` (`src/lib/cloudflare.ts`). On Workers that is the native `cloudflare:workers` env. In the self-hosted runtime, `server/index.ts` builds an object with the same shape (`server/runtime/env.ts`: a D1-compatible wrapper over better-sqlite3, an R2-compatible file bucket, `EMAIL` over nodemailer or the Cloudflare Sending REST API, in-process queues, a WebSocket hub standing in for the Durable Object, a fixed-window rate limiter) and publishes it as `globalThis.__mailflareNodeEnv` before Next starts; `getNodeEnv()` in `src/lib/runtime.ts` returns it. Application code must not care which one it got. The few places that must differ check `isNodeRuntime(env)`: setup requirement checks, the self-update button, and domain provisioning, which without Cloudflare credentials records the zone as `"manual"` (`src/lib/domains/provision.ts`) so every Cloudflare call is a no-op and the DNS page lists records to set by hand. Inbound mail off Workers goes through `intakeIncomingMail` (`src/lib/email/intake.ts`) from either the SMTP listener (`server/runtime/smtp.ts`) or the signed `/api/inbound` webhook the relay Worker in `deploy/cloudflare-email-relay` calls. `npm run build:node` builds Next in Node mode and bundles the server with esbuild to `dist/server.mjs`; the Dockerfile runs that. Migrations are applied from `drizzle/migrations` at start (`server/runtime/migrate.ts`), so the bootstrap schema in `src/lib/setup/migration.ts` is not used there.
 
 ### JMAP lives in `src/lib/jmap/`
 
@@ -124,7 +136,7 @@ The admin overview dispatches `deploy-update.yml` (constant in `src/app/api/admi
 
 - Tabs for indentation. `@/*` maps to `src/*`.
 - Types and pure helpers are split out of components and modules into sibling `*-types.d.ts` and `*-utils.ts` files (41 and 27 of them respectively). Follow this when adding anything non-trivial.
-- Server code reaches bindings through `getEnv()` / `getEnvAsync()` in `src/lib/cloudflare.ts`, then `getDb(env)` from `src/db`. Never import `getCloudflareContext` directly.
+- Server code reaches bindings through `getEnv()` / `getEnvAsync()` in `src/lib/cloudflare.ts`, then `getDb(env)` from `src/db`. Keep binding access centralized here.
 - API routes return `NextResponse.json({ error: "..." }, { status })` for failures; there is no shared error envelope helper.
 - UI is Tailwind v4 + shadcn/Radix primitives in `src/components/ui/`. `DialogContent` sets no max height, so a tall dialog overflows the viewport with an unreachable submit button — add `max-h-[calc(100vh-4rem)] overflow-y-auto` on any dialog with more than a few fields.
 - `cloudflare-env.d.ts` is generated (500KB) — regenerate with `cf-typegen`, never hand-edit.

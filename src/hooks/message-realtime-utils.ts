@@ -4,6 +4,19 @@ import { hasActivePushSubscription } from "@/lib/push/client";
 export const REALTIME_FALLBACK_INTERVAL_MS = 60_000;
 export const REALTIME_HEARTBEAT_INTERVAL_MS = 25_000;
 export const REALTIME_RECONNECT_MAX_MS = 30_000;
+const BROWSER_NOTIFICATIONS_ENABLED_KEY = "mailflare:browser-notifications-enabled";
+
+export function areBrowserNotificationsEnabled(): boolean {
+	try {
+		return window.localStorage.getItem(BROWSER_NOTIFICATIONS_ENABLED_KEY) !== "false";
+	} catch {
+		return true;
+	}
+}
+
+export function setBrowserNotificationsEnabled(enabled: boolean): void {
+	window.localStorage.setItem(BROWSER_NOTIFICATIONS_ENABLED_KEY, String(enabled));
+}
 
 export function getRealtimeWebSocketUrl(): string {
 	const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
@@ -43,20 +56,25 @@ export async function showBrowserNewMessageNotification(event: NewMessageEvent):
 	if (
 		typeof Notification === "undefined" ||
 		Notification.permission !== "granted" ||
+		!areBrowserNotificationsEnabled() ||
 		document.visibilityState === "visible"
 	) {
 		return;
 	}
 	if (await hasActivePushSubscription().catch(() => false)) return;
 
-	const notification = new Notification(event.subject || "New email", {
-		body: `From ${event.fromName ?? event.from}`,
-		icon: "/icon-96.png",
-		tag: event.messageId,
-	});
-	notification.onclick = () => {
-		window.focus();
-		window.location.assign(`/inbox/${event.messageId}`);
-		notification.close();
-	};
+	try {
+		const notification = new Notification(event.subject || "New email", {
+			body: `From ${event.fromName ?? event.from}`,
+			icon: "/icon-96.png",
+			tag: event.messageId,
+		});
+		notification.onclick = () => {
+			window.focus();
+			window.location.assign(`/inbox/${event.messageId}`);
+			notification.close();
+		};
+	} catch {
+		// The in-app new message popup still handles this email.
+	}
 }

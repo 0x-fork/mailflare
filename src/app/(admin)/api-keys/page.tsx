@@ -1,11 +1,12 @@
 "use client";
 
+import { mobilePrimaryActionClass } from "@/components/page-header-utils";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { KeyRound, Plus } from "lucide-react";
+import { Copy, KeyRound, Plus, Trash2 } from "lucide-react";
+import { useLanguage } from "@/components/language-provider";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
 import {
 	Dialog,
 	DialogContent,
@@ -17,131 +18,139 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { CardGridSkeleton } from "@/components/page-skeletons";
+import { List, ListRow } from "@/components/ui/list";
+import { SectionRowSkeleton } from "@/components/page-skeletons";
+import { McpAgentInstructions } from "@/components/settings/mcp-agent-instructions";
 import { authFetch } from "@/lib/auth/client";
-import { API_KEY_SCOPES, type ApiKeyScope } from "@/lib/api/scopes";
+import type { AdminApiKeyScope } from "@/lib/api/scopes-types";
 import type { ApiKey } from "./types";
-import { parseApiKeyScopes } from "./utils";
+import { ADMIN_KEY_PERMISSIONS, parseApiKeyScopes } from "./utils";
 
 export default function ApiKeysPage() {
+	const { t } = useLanguage();
 	const qc = useQueryClient();
 	const [name, setName] = useState("");
-	const [scopes, setScopes] = useState<ApiKeyScope[]>(["send", "read"]);
+	const [scopes, setScopes] = useState<AdminApiKeyScope[]>(["domains"]);
+	const [mcpAllowed, setMcpAllowed] = useState(false);
+	const [createdMcpAllowed, setCreatedMcpAllowed] = useState(false);
 	const [newKey, setNewKey] = useState<string | null>(null);
+	const [copied, setCopied] = useState(false);
 	const [createOpen, setCreateOpen] = useState(false);
 
 	const { data, isLoading } = useQuery({
-		queryKey: ["api-keys"],
+		queryKey: ["admin-api-keys"],
 		queryFn: async () => {
-			const res = await authFetch("/api/api-keys");
+			const res = await authFetch("/api/admin/api-keys");
+			if (!res.ok) throw new Error(t("adminKeys.loadFailed"));
 			return (await res.json()) as { apiKeys: ApiKey[] };
 		},
 	});
 
 	const create = useMutation({
 		mutationFn: async () => {
-			const res = await authFetch("/api/api-keys", {
+			const res = await authFetch("/api/admin/api-keys", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ name, scopes }),
+				body: JSON.stringify({ name: name.trim(), scopes, mcpAllowed }),
 			});
-			const json = (await res.json()) as { key?: string };
-			if (!res.ok) throw new Error("Failed");
+			const json = (await res.json()) as { key?: string; error?: string };
+			if (!res.ok || !json.key) throw new Error(typeof json.error === "string" ? json.error : t("apiKeys.createFailed"));
 			setNewKey(json.key ?? null);
+			setCreatedMcpAllowed(mcpAllowed);
+			setCopied(false);
 			setName("");
 		},
 		onSuccess: () => {
-			setCreateOpen(false);
-			setScopes(["send", "read"]);
-			qc.invalidateQueries({ queryKey: ["api-keys"] });
+			setScopes(["domains"]);
+			qc.invalidateQueries({ queryKey: ["admin-api-keys"] });
 		},
+	});
+	const revoke = useMutation({
+		mutationFn: async (id: string) => {
+			const res = await authFetch(`/api/admin/api-keys?id=${encodeURIComponent(id)}`, { method: "DELETE" });
+			if (!res.ok) throw new Error(t("adminKeys.revokeFailed"));
+		},
+		onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-api-keys"] }),
 	});
 
 	return (
 		<div className="space-y-6">
 			<div className="flex items-center justify-between gap-4">
-				<h1 className="text-2xl font-semibold">API Keys</h1>
-				<Dialog open={createOpen} onOpenChange={setCreateOpen}>
+				<h1 className="text-2xl md:text-3xl font-medium">{t("admin.section.apiKeysTitle")}</h1>
+				<Dialog open={createOpen} onOpenChange={(open) => { if (create.isPending) return; setCreateOpen(open); if (!open) { setNewKey(null); setCopied(false); } }}>
 					<DialogTrigger asChild>
-						<Button>
+						<Button className={mobilePrimaryActionClass}>
 							<Plus className="h-4 w-4" />
-							New API key
+							{t("apiKeys.new")}
 						</Button>
 					</DialogTrigger>
-					<DialogContent>
+					<DialogContent className="max-h-[calc(100vh-4rem)] overflow-y-auto">
 						<DialogHeader>
-							<DialogTitle>Create API key</DialogTitle>
-						<DialogDescription>Choose what this key is allowed to do.</DialogDescription>
-					</DialogHeader>
-					<div className="space-y-4">
+							<DialogTitle>{newKey ? t("apiKeys.createdTitle") : t("apiKeys.createTitle")}</DialogTitle>
+							<DialogDescription>{newKey ? t("apiKeys.copyNow") : t("apiKeys.nameAndAccess")}</DialogDescription>
+						</DialogHeader>
+						{!newKey && <div className="space-y-4">
 						<div className="space-y-2">
-							<Label>Name</Label>
-							<Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Production app" />
+							<Label htmlFor="admin-key-name">{t("apiKeys.keyName")}</Label>
+							<Input id="admin-key-name" value={name} onChange={(e) => setName(e.target.value)} maxLength={100} placeholder={t("adminKeys.namePlaceholder")} />
 						</div>
-						<div className="space-y-2">
-							<Label>Scopes</Label>
-							<div className="flex flex-wrap gap-x-4 gap-y-2">
-								{API_KEY_SCOPES.map((scope) => (
-									<label key={scope} className="flex items-center gap-2 text-sm">
+						<label className="flex items-start gap-3 text-sm"><Checkbox checked={mcpAllowed} onChange={(event) => setMcpAllowed(event.target.checked)} /><span><strong>{t("apiKeys.allowMcp")}</strong><span className="mt-1 block text-neutral-500">{t("adminKeys.allowMcpHint")}</span></span></label>
+						<fieldset className="space-y-2">
+							<legend className="text-sm font-medium">{t("apiKeys.permissions")}</legend>
+							<div className="space-y-2">
+								{ADMIN_KEY_PERMISSIONS.map((scope) => (
+									<label key={scope.value} className="flex items-start gap-3 text-sm">
 										<Checkbox
-											checked={scopes.includes(scope)}
+											checked={scopes.includes(scope.value)}
+											className="mt-1"
 											onChange={(event) =>
 												setScopes((current) =>
 													event.target.checked
-														? [...current, scope]
-														: current.filter((item) => item !== scope),
+														? [...current, scope.value]
+														: current.filter((item) => item !== scope.value),
 												)
 											}
 										/>
-										{scope}
+										<span><strong>{t(scope.labelKey)}</strong><span className="block text-neutral-500">{t(scope.descriptionKey)}</span></span>
 									</label>
 								))}
 							</div>
-						</div>
+						</fieldset>
 						{create.isError && (
 							<p className="text-sm text-red-600">{(create.error as Error).message}</p>
 						)}
 						<Button
 							onClick={() => create.mutate()}
-							disabled={!name || scopes.length === 0 || create.isPending}
+							disabled={!name.trim() || scopes.length === 0 || create.isPending}
 						>
-							{create.isPending ? "Creating..." : "Create key"}
+							{create.isPending ? t("accounts.creating") : t("adminKeys.createKey")}
 						</Button>
-					</div>
+						</div>}
+						{newKey && <div className="space-y-3 rounded-xl border border-blue-200 bg-blue-50 p-4"><code className="block break-all rounded bg-white p-2 text-xs">{newKey}</code>{createdMcpAllowed && <McpAgentInstructions mode="admin" apiKey={newKey} />}<div className="flex gap-2"><Button type="button" size="sm" variant="outline" onClick={() => void navigator.clipboard.writeText(newKey).then(() => setCopied(true))}><Copy className="h-4 w-4" />{copied ? t("common.copied") : t("apiKeys.copyKey")}</Button><Button type="button" size="sm" variant="ghost" onClick={() => { setCreateOpen(false); setNewKey(null); setCopied(false); }}>{t("common.done")}</Button></div></div>}
 					</DialogContent>
 				</Dialog>
 			</div>
-			{newKey && (
-				<Card className="border-blue-600/10 bg-blue-400/10">
-					<CardContent className="pt-6">
-						<p className="text-sm font-medium text-blue-600">Copy your key now:</p>
-						<code className="block mt-2 text-xs break-all font-bold">{newKey}</code>
-					</CardContent>
-				</Card>
-			)}
 			<section className="space-y-3">
-				<div className="flex items-center justify-between">
-					<span className="text-sm text-neutral-500">{(data?.apiKeys ?? []).length} total</span>
-				</div>
+				{revoke.isError && <p role="alert" className="text-sm text-red-600">{revoke.error.message}</p>}
 				{isLoading && (
-					<CardGridSkeleton />
+					<SectionRowSkeleton />
 				)}
 				{!isLoading && (data?.apiKeys ?? []).length === 0 && (
-					<p className="rounded-lg border border-neutral-200 bg-white px-4 py-3 text-sm text-neutral-500">
-						No API keys yet
+					<p className="rounded-2xl bg-white px-5 py-4 text-sm text-neutral-500">
+						{t("apiKeys.none")}
 					</p>
 				)}
-				<div className="grid gap-3">
+				<List>
 					{(data?.apiKeys ?? []).map((key) => (
-						<div
+						<ListRow
 							key={key.id}
-							className="flex min-h-24 items-start gap-3 rounded-lg border border-neutral-200 bg-white p-4 shadow-sm shadow-neutral-100"
+							className="px-5 py-4"
 						>
-							<span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-neutral-100 text-neutral-600">
+							<span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-100 text-blue-700">
 								<KeyRound className="h-5 w-5" />
 							</span>
 							<span className="min-w-0 flex-1 space-y-2">
-								<span className="block truncate text-sm font-semibold text-neutral-900">{key.name}</span>
+								<span className="flex min-w-0 flex-wrap items-center gap-2"><strong className="truncate text-sm font-semibold text-neutral-900">{key.name}</strong>{key.kind === "mcp" && <Badge variant="outline">MCP</Badge>}</span>
 								<span className="block truncate no-font-mono text-sm text-neutral-500">{key.prefix}...</span>
 								<span className="flex flex-wrap gap-1">
 									{parseApiKeyScopes(key.scopes).map((scope) => (
@@ -151,9 +160,10 @@ export default function ApiKeysPage() {
 									))}
 								</span>
 							</span>
-						</div>
+						<Button type="button" size="sm" variant="outline" disabled={revoke.isPending} onClick={() => { if (window.confirm(t("apiKeys.revokeConfirm", { name: key.name }))) revoke.mutate(key.id); }}><Trash2 className="h-4 w-4" />{t("common.revoke")}</Button>
+						</ListRow>
 					))}
-				</div>
+				</List>
 			</section>
 		</div>
 	);

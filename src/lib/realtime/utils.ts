@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { domains, mailboxAccess, mailboxes } from "@/db/schema";
 import { isTeamMailboxSharingEnabled } from "@/lib/mailboxes/access-utils";
-import type { NewMessageNotification } from "./types";
+import type { NewMessageNotification, AgentDraftNotification } from "./types";
 import { sendPushNotifications } from "@/lib/push/server";
 
 export function getSessionTokenFromRequest(request: Request): string | undefined {
@@ -52,8 +52,10 @@ export async function getMailboxNotificationUserIds(
 export async function notifyUsersOfNewMessage(
 	env: CloudflareEnv,
 	userIds: string[],
-	payload: NewMessageNotification,
+	payload: NewMessageNotification | AgentDraftNotification,
 ): Promise<void> {
+	// Next dev uses a bindings-only proxy; realtime delivery runs in worker.ts.
+	if (!env.REALTIME) return;
 	await Promise.allSettled([
 		...userIds.map((userId) => {
 			const hub = env.REALTIME.getByName(userId);
@@ -63,6 +65,6 @@ export async function notifyUsersOfNewMessage(
 				body: JSON.stringify(payload),
 			});
 		}),
-		sendPushNotifications(env, userIds, payload),
+		...(payload.type === "agent_draft" ? [] : [sendPushNotifications(env, userIds, payload)]),
 	]);
 }

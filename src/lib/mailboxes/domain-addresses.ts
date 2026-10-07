@@ -4,6 +4,7 @@ import { domains, mailboxAliases, mailboxes } from "@/db/schema";
 import { deleteEmailRoutingRuleForAddress, ensureEmailRoutingRuleToWorker } from "@/lib/cloudflare-api";
 import { normalizeRecipientLocalPart } from "@/lib/email/recipient-address";
 import type { MailboxDomainAddressInput } from "./domain-addresses-types";
+import type { CfEmailRoutingRuleChange } from "@/lib/cloudflare-api.types";
 
 export async function getMailboxAliasAddresses(
 	db: AppDatabase,
@@ -75,6 +76,7 @@ export async function ensureMailboxDomainRouting(
 	env: CloudflareEnv,
 	db: AppDatabase,
 	mailbox: MailboxDomainAddressInput,
+	changes?: CfEmailRoutingRuleChange[],
 ): Promise<void> {
 	const addresses = await getMailboxDomainAddresses(db, mailbox);
 	if (addresses.length === 0) return;
@@ -85,18 +87,22 @@ export async function ensureMailboxDomainRouting(
 		.limit(1);
 	if (!primaryDomain) return;
 	const availableDomains = await db
-		.select({ hostname: domains.hostname, zoneId: domains.zoneId })
+		.select({ hostname: domains.hostname, zoneId: domains.zoneId, receivingProvider: domains.receivingProvider })
 		.from(domains)
 		.where(eq(domains.userId, primaryDomain.userId));
 	const domainsByHostname = new Map(availableDomains.map((domain) => [domain.hostname.toLowerCase(), domain]));
 
-	await Promise.all(
+	// Wait for every request before a caller rolls back a failed attempt.
+	const results = await Promise.allSettled(
 		addresses.map(async (address) => {
 			const hostname = address.slice(address.lastIndexOf("@") + 1);
 			const domain = domainsByHostname.get(hostname);
-			if (domain) await ensureEmailRoutingRuleToWorker(env, domain.zoneId, address);
+			// Worker routes only matter when Cloudflare is what receives this domain's mail.
+			if (domain && domain.receivingProvider === "cloudflare") await ensureEmailRoutingRuleToWorker(env, domain.zoneId, address, changes);
 		}),
 	);
+	const failure = results.find((result) => result.status === "rejected");
+	if (failure?.status === "rejected") throw failure.reason;
 }
 
 export async function removeMailboxDomainRouting(

@@ -1,3 +1,4 @@
+import type { TranslationKey } from "@/lib/i18n/types";
 import type { BulkMessageAction } from "@/app/api/messages/bulk/types";
 import type { Message, MessageDirection } from "@/hooks/types";
 import { IconNode } from "lucide-react";
@@ -20,6 +21,12 @@ export type MessageActionsProps = {
 	/** Needed by Forward, which quotes the original header block. */
 	messageMeta?: Pick<Message, "id" | "subject" | "createdAt">;
 	bodyHtml?: string | null;
+};
+
+export type MessageSnoozeDialogProps = {
+	messageId: string;
+	open: boolean;
+	onOpenChange: (open: boolean) => void;
 };
 
 export type ForwardDraftInput = {
@@ -72,6 +79,6 @@ export type BlockMessageContactInput = {
 
 export type MoveMessageActionItem = {
 	action: BulkMessageAction;
-	label: string;
+	labelKey: TranslationKey;
 	icon: any
 };

@@ -1,36 +1,40 @@
+import type { TranslationKey } from "@/lib/i18n/types";
 import { authFetch } from "@/lib/auth/client";
 import type { MessageCountsDelta } from "@/hooks/types";
+import { dateFromZonedFields, formatUserDateTimeLocal, getUserTimeZone, parseUserDateTimeLocal, zonedDateFields } from "@/lib/time/utils";
 
 export type SnoozePreset = {
-	label: string;
+	labelKey: TranslationKey;
 	value: string;
 };
 
 export function formatSnoozeDateTime(date: Date): string {
-	const timezoneOffset = date.getTimezoneOffset() * 60_000;
-	return new Date(date.getTime() - timezoneOffset).toISOString().slice(0, 16);
+	return formatUserDateTimeLocal(date);
 }
 
 export function getSnoozePresets(now = new Date()): SnoozePreset[] {
-	const tomorrow = new Date(now);
-	tomorrow.setDate(tomorrow.getDate() + 1);
-	const nextWeek = new Date(now);
-	nextWeek.setDate(nextWeek.getDate() + 7);
-	const nextMonth = new Date(now);
-	nextMonth.setMonth(nextMonth.getMonth() + 1);
+	const today = zonedDateFields(now, getUserTimeZone());
+	const tomorrow = new Date(today);
+	tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
+	const nextWeek = new Date(today);
+	nextWeek.setUTCDate(nextWeek.getUTCDate() + 7);
+	const nextMonth = new Date(today);
+	nextMonth.setUTCMonth(nextMonth.getUTCMonth() + 1);
 
 	return [
-		{ label: "Tomorrow", value: formatSnoozeDateTime(tomorrow) },
-		{ label: "Next week", value: formatSnoozeDateTime(nextWeek) },
-		{ label: "Next month", value: formatSnoozeDateTime(nextMonth) },
+		{ labelKey: "snooze.tomorrow", value: formatSnoozeDateTime(dateFromZonedFields(tomorrow, getUserTimeZone())) },
+		{ labelKey: "snooze.nextWeek", value: formatSnoozeDateTime(dateFromZonedFields(nextWeek, getUserTimeZone())) },
+		{ labelKey: "snooze.nextMonth", value: formatSnoozeDateTime(dateFromZonedFields(nextMonth, getUserTimeZone())) },
 	];
 }
 
 export async function snoozeMessage(messageId: string, snoozedUntil: string) {
+	const parsed = parseUserDateTimeLocal(snoozedUntil);
+	if (!parsed) throw new Error("Choose a valid snooze time");
 	const response = await authFetch(`/api/messages/${messageId}/snooze`, {
 		method: "POST",
 		headers: { "Content-Type": "application/json" },
-		body: JSON.stringify({ snoozedUntil: new Date(snoozedUntil).toISOString() }),
+		body: JSON.stringify({ snoozedUntil: parsed.toISOString() }),
 	});
 	if (!response.ok) throw new Error("Unable to snooze message");
 	window.dispatchEvent(new Event("mailflare:messages-changed"));

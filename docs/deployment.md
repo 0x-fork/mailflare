@@ -8,27 +8,40 @@ Set up Mailflare in three steps:
 
 1. **Deploy the app:** use the Deploy to Cloudflare button, set the app name to `mailflare`, and provide the required `CF_TOKEN`.
 2. **Complete setup:** open the deployed app and follow `/setup` to check the installation and create the first admin account.
-3. **Connect your domain:** add a domain managed by the same Cloudflare account. Mailflare configures email routing and, when available and selected, email sending before helping you create the first mailbox.
+3. **Connect your domain:** add a domain managed by the same Cloudflare account and choose which service receives its mail. Mailflare configures email routing and, when available and selected, email sending before helping you create the first mailbox. Resend and Amazon SES are alternatives to Cloudflare for receiving and sending; see [Sending and receiving providers](providers.md).
 
-The Worker name must remain `mailflare`. Before starting, create the required `CF_TOKEN` with **Zone Read**, **DNS Edit**, **Email Routing Edit**, and **Email Routing Rules Write** permissions for every domain you plan to connect. DNS Edit lets the confirmed setup flow replace conflicting MX records. Add **Email Sending Edit** when Mailflare should send email; it is optional for receive-only domains.
 
-## Step 1: Deploy mailflare
+## Step 1: Setup CF_TOKEN
+To configure your `CF_TOKEN` (which is a scoped Cloudflare API Token with specific permissions), follow the below steps.
+
+1. In your Cloudflare account, navigate to `Manage Account` → `Account API Tokens` and create a new token.
+2. At the top of the Policy window, select `Specified Domains` for all domains that you plan to connect
+    1. Then configure these permissions
+        1. DNS & Zones > DNS > Select `Edit` Access
+            1. This allows the confirmed setup flow to replace conflicting MX records
+        2. DNS & Zones > Zone > Select `Read` Access
+        3. DNS & Zones → Zone Settings → Select `Edit` Access
+        4. Email & Messaging > Email Routing Rules > Select `Edit` Access
+3. If mailflare will send emails: Add another policy and select `Entire Account`, and configure these permissions:
+    1. Email & Messaging > Email Sending > Select `Edit` Access
+4. After your token is setup, go to `Compute` → `Email Service` → `Email Sending`
+    1. You will need to purchase a paid workers plan if you don't already have one
+    2. Select On-board domain and follow the prompts
+    3. After this is done, and after you have setup Mailflare, on the Admin > domains page, when you expand the domain you can then configure DKIM and DMARC records
+
+Paste only the token secret into the `CF_TOKEN` field in step 2. Do not include the word `Bearer` and do not use the token ID. The token must belong to the same Cloudflare account as the domains you connect.
+
+## Step 2: Deploy mailflare
+
+1. Click **Deploy to Cloudflare** and sign in to Cloudflare if prompted.
 
 [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/hieunc229/mailflare)
 
-1. Click **Deploy to Cloudflare** above and sign in to Cloudflare if prompted.
 2. Choose the Cloudflare account that owns the domain you want to use.
-3. Set the app name to exactly `mailflare`. Do not rename it.
-4. Add `CF_TOKEN` when Cloudflare asks for the app's runtime variables or secrets.
+3. Set the app name to exactly `mailflare`. Do not rename it. 
+4. Add `CF_TOKEN` when Cloudflare asks for the app's runtime variables or secrets. This is different from the CF_TOKEN that Cloudflare uses to deploy the app.
 5. Start the deployment and wait for Cloudflare to finish provisioning and deploying the Worker.
 
-### Required configuration
-
-Mailflare requires this runtime value:
-
-- `CF_TOKEN` — a scoped Cloudflare API token with **Zone Read**, **DNS Edit**, **Email Routing Edit**, and **Email Routing Rules Write** access for the domains you will connect. Add **Email Sending Edit** to enable outbound mail. This is separate from the token Cloudflare uses to deploy the app.
-
-Paste only the token secret into `CF_TOKEN`. Do not include the word `Bearer` and do not use the token ID. The token must belong to the same Cloudflare account as the domains you connect.
 
 ### Optional Web Push configuration
 
@@ -38,7 +51,7 @@ store `VAPID_PRIVATE_KEY` as a Worker secret. Configure `VAPID_PUBLIC_KEY` and
 public HTTPS URL of the installation. The same VAPID key pair should be kept
 across deployments so existing browser subscriptions remain valid.
 
-## Step 2: Complete mailflare setup
+## Step 3: Complete mailflare setup
 
 1. Open the URL of the deployed `mailflare` Worker.
 2. Go to `/setup` if Mailflare does not take you there automatically.
@@ -47,14 +60,16 @@ across deployments so existing browser subscriptions remain valid.
 
 Setup applies the committed migrations through the Worker's D1 binding before creating the first admin account.
 
-## Step 3: Connect your primary domain and create an account
+## Step 4: Connect your primary domain and create an account
 
-1. Enter a domain that already uses Cloudflare DNS on the same account as `CF_TOKEN`.
+1. Enter a domain that already uses Cloudflare DNS on the same account as your `CF_TOKEN`.
 2. Continue while Mailflare enables Email Routing and configures the required routing and sending DNS.
 3. Choose the address for your first mailbox and finish setup.
 4. Open the inbox and send a test message to the new address.
 
-To connect more domains later, open **Admin → Domains**, select **New domain**, and enter the hostname. Mailflare configures Email Routing and Email Sending automatically.
+To connect more domains later, open **Admin → Domains**, select **New domain**, enter the hostname and choose the receiving service. With Cloudflare, Mailflare configures Email Routing and Email Sending automatically. With Resend or Amazon SES, add the provider's credentials and run its setup from the domain page; see [Sending and receiving providers](providers.md). The `CF_TOKEN` is still needed in every case, because Cloudflare manages the domain's DNS.
+
+Resend and SES receive mail by calling your app, so set `APP_URL` to the app's public HTTPS address before setting them up for receiving.
 
 Your inbox should be ready to send and receive emails
 
@@ -69,7 +84,7 @@ npm install
 npm run deploy:local
 ```
 
-The local deploy command builds and uploads the complete Worker with Wrangler. It does not modify D1. The complete Worker is required because `worker.ts` also handles inbound email, queues, scheduled backups, and the real-time Durable Object.
+The local deploy command builds with vinext and uploads the complete Worker with Wrangler. The Cloudflare Vite plugin generates `dist/server/wrangler.json` and redirects Wrangler to that build. It does not modify D1. The complete Worker is required because `worker.ts` also handles inbound email, queues, scheduled backups, and the real-time Durable Object.
 
 For manual recovery, pending migrations can still be applied with:
 
@@ -86,6 +101,14 @@ Mailflare exports its D1 records as JSON and stores the backup files in the conf
 Deploy the complete Worker with `npm run deploy` whenever the cron trigger is added or changed.
 
 After upgrading an existing installation and confirming the cron trigger is active, the old Workflow can be removed with `npx wrangler workflows delete mailflare-database-backup`. Deleting it also removes its historical Workflow instances; backup files in R2 and rows in Mailflare's backup history are unaffected.
+
+## Email assistant and MCP
+
+The assistant uses the Workers AI `AI` binding and a separate `mailflare-agent` queue. Provision the queue in the Cloudflare account before deploying a configuration that declares it, and apply migration `0032_add_agentic_mail.sql` before opening the new UI on an existing database. The five-minute cron recovers pending auto-draft work; the 02:00 UTC cron still runs backups.
+
+In the inbox, open **Assistant → Settings** for a mailbox, select its reviewer, and enable the assistant. Auto-drafting is a separate opt-in. It skips spam, automated mail, and mailboxes with out-of-office replies enabled. Generated replies appear as ordinary drafts assigned to the reviewer. The reviewer must open the draft and confirm the exact content before delivery.
+
+The assistant panel no longer exposes MCP key management. External MCP clients can still connect to `https://<your-mailflare-origin>/mcp` with a mailbox-scoped Bearer key created through the authenticated `/api/agent/mcp-keys` endpoint. Keys can be listed and revoked through that endpoint; a new key is shown only once. The server uses Streamable HTTP and accepts clients that can set a Bearer header. Its `request_send` tool returns a Mailflare review URL; the MCP key cannot confirm or deliver messages directly. MCP does not require Workers AI for read and draft tools.
 
 ## Updating Mailflare
 
