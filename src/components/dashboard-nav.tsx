@@ -2,6 +2,7 @@
 
 import type { FormEvent } from "react";
 import { useLanguage } from "./language-provider";
+import { folderColorKeys } from "@/lib/folders/color-keys";
 import type { TranslationKey } from "@/lib/i18n/types";
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
@@ -71,16 +72,6 @@ const links = [
   { href: "/trash", labelKey: "navigation.trash", icon: Trash2, preloadMessages: true },
 ] satisfies (Omit<NavLink, "label"> & { labelKey: TranslationKey })[];
 
-const folderColorKeys = {
-  "#2563eb": "color.blue",
-  "#7c3aed": "color.purple",
-  "#db2777": "color.pink",
-  "#dc2626": "color.red",
-  "#ea580c": "color.orange",
-  "#d97706": "color.amber",
-  "#16a34a": "color.green",
-  "#0d9488": "color.teal",
-} satisfies Record<FolderColor, TranslationKey>;
 
 // Drafts, Archived, Spam and Trash start tucked under "More...".
 const MORE_LINK_HREFS = ["/drafts", "/archived", "/spam", "/trash"];

@@ -2,7 +2,7 @@ import type { CalendarEvent, CalendarEventTimes, EventGroup, EventResizeEdge } f
 import type { FolderColor } from "@/lib/folders/types";
 import type { CalendarRepeat } from "@/lib/calendar/types";
 import { parseCalendarRepeatDays, parseExcludedOccurrences } from "@/lib/calendar/recurrence";
-import { dateFromZonedFields, formatUserDate, formatUserDateTimeLocal, getUserTimeZone, parseUserDateTimeLocal, zonedDateFields } from "@/lib/time/utils";
+import { dateFromZonedFields, formatUserDate, getDisplayLocale, formatUserDateTimeLocal, getUserTimeZone, parseUserDateTimeLocal, zonedDateFields } from "@/lib/time/utils";
 
 export const CALENDAR_START_HOUR = 0;
 export const CALENDAR_END_HOUR = 24;
@@ -182,7 +182,7 @@ export function currentTimePosition(value: Date): number {
 }
 
 export function formatHour(hour: number): string {
-  return new Date(2026, 0, 1, hour).toLocaleTimeString(undefined, { hour: "numeric" });
+  return new Date(2026, 0, 1, hour).toLocaleTimeString(getDisplayLocale(), { hour: "numeric" });
 }
 
 export function formatEventTime(value: Date): string {
