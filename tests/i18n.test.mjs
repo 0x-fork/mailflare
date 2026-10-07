@@ -49,7 +49,7 @@ async function bundleI18n(outfile, extraLocale = false) {
 			setup(builder) {
 				if (extraLocale) builder.onLoad({ filter: /\/i18n\/locales\.ts$/ }, ({ path }) => ({
 					contents: readFileSync(path, "utf8").replace("export const locales = {", `export const locales = {
-						es: { label: "Español", dir: "rtl", load: async () => ({ ...en, "navigation.inbox": "Entrada", "navigation.inbox.one": "{count} entrada", "navigation.inbox.other": "{count} entradas", "language.label": "Idioma" }) },`),
+						xx: { label: "Testlandic", dir: "rtl", load: async () => ({ ...en, "navigation.inbox": "Entrada", "navigation.inbox.one": "{count} entrada", "navigation.inbox.other": "{count} entradas", "language.label": "Idioma" }) },`),
 					loader: "ts",
 				}));
 				builder.onResolve({ filter: /^(next\/headers|next\/font\/google|@\/components\/providers)$/ }, (args) => ({ path: args.path, namespace: "stub" }));
@@ -139,17 +139,17 @@ test("a locale registered once reaches resolution, translation, cookie, selector
 	const extraFile = join(outDir, "with-spanish.mjs");
 	await bundleI18n(extraFile, true);
 	const extended = await import(pathToFileURL(extraFile).href);
-	assert.equal(extended.resolveLocale("es"), "es");
-	assert.equal(extended.translate(await extended.loadMessages("es"), "navigation.inbox"), "Entrada");
-	assert.match(extended.serializeLocaleCookie("es", true), /^mailflare-locale=es;/);
-	const selector = await extended.renderLanguage("es");
-	assert.match(selector, /value="es" lang="es" selected="">Español<\/option>/);
+	assert.equal(extended.resolveLocale("xx"), "xx");
+	assert.equal(extended.translate(await extended.loadMessages("xx"), "navigation.inbox"), "Entrada");
+	assert.match(extended.serializeLocaleCookie("xx", true), /^mailflare-locale=xx;/);
+	const selector = await extended.renderLanguage("xx");
+	assert.match(selector, /value="xx" lang="xx" selected="">Testlandic<\/option>/);
 	assert.match(selector, />Entrada<\/span>/);
-	const layout = await extended.renderLayout("es");
-	assert.match(layout, /<html lang="es"/);
+	const layout = await extended.renderLayout("xx");
+	assert.match(layout, /<html lang="xx"/);
 	assert.match(layout, />Entrada<\/span>/);
-	assert.match(layout, /<html lang="es" dir="rtl"/);
-	const t = extended.createTranslator("es", await extended.loadMessages("es"));
+	assert.match(layout, /<html lang="xx" dir="rtl"/);
+	const t = extended.createTranslator("xx", await extended.loadMessages("xx"));
 	assert.equal(t("navigation.inbox", { count: 1 }), "1 entrada");
 	assert.equal(t("navigation.inbox", { count: 3 }), "3 entradas");
 	assert.equal(t("navigation.inbox"), "Entrada");
