@@ -36,8 +36,7 @@ import {
   resolveInlineAttachmentUrls,
 } from "./utils";
 import { extractCloudAttachments } from "./cloud-attachment-utils";
-import { sanitizeEmailHtml } from "./email-html-sanitizer";
-import { collapseQuotedEmailHtml } from "./quote-collapse-utils";
+import { EmailHtmlRenderer } from "@/components/messages/email-html-renderer";
 import clsx from "clsx";
 import { useAssistantOpen } from "@/components/agent/assistant-open-state";
 import { useMessageContentScroll } from "./use-message-content-scroll";
@@ -137,12 +136,12 @@ export default function MessageDetailPage() {
     message.snippet,
     ownAddress,
   );
-  const htmlBody = collapseQuotedEmailHtml(sanitizeEmailHtml(
-    resolveInlineAttachmentUrls(bodyDisplay.htmlBody, message.id, attachments),
-  ));
-  const quotedHtml = collapseQuotedEmailHtml(sanitizeEmailHtml(
-    resolveInlineAttachmentUrls(bodyDisplay.quotedHtml, message.id, attachments),
-  ), true);
+  const htmlBody = (
+    resolveInlineAttachmentUrls(bodyDisplay.htmlBody, message.id, attachments)
+  );
+  const quotedHtml = (
+    resolveInlineAttachmentUrls(bodyDisplay.quotedHtml, message.id, attachments)
+  );
   const cloudAttachmentResult = extractCloudAttachments(
     bodyDisplay.latestContent,
   );
@@ -271,7 +270,7 @@ export default function MessageDetailPage() {
           </div>
           <div className="prose max-w-none pl-16 text-neutral-900">
             {htmlBody ? (
-              <div className="email-body mx-auto" dangerouslySetInnerHTML={{ __html: htmlBody }} />
+              <EmailHtmlRenderer key={message.id} className="mx-auto" html={htmlBody} />
             ) : (
               <pre className="whitespace-pre-wrap text-sm text mx-auto">
                 {cloudAttachmentResult.content}
