@@ -114,7 +114,6 @@
 	"source.couldNotCopy": "Could not copy",
 	"source.copied": "Copied",
 	"source.copy": "Copy to clipboard",
-	"common.notSpamOrInbox": "Not spam",
 	"actions.error.update": "Could not update message",
 	"actions.error.delete": "Could not delete message",
 	"actions.error.trashRule": "Could not create trash rule",
@@ -136,7 +135,6 @@
 	"folder.empty.archived": "No archived emails",
 	"folder.empty.spam": "No spam",
 	"folder.empty.trash": "No emails in trash",
-	"folder.empty.custom": "No emails",
 	"list.noMatch": "No messages match these filters",
 	"list.draft": "Draft",
 	"list.unknownSender": "Unknown sender",
@@ -160,8 +158,8 @@
 	"list.emptyFailed": "Could not empty {folder}. Please try again.",
 	"delete.confirm.one": "Permanently delete this message? This cannot be undone.",
 	"delete.confirm.other": "Permanently delete these {count} messages? This cannot be undone.",
-	"empty.confirm.one": "Permanently delete the 1 message in {folder}? This cannot be undone.",
-	"empty.confirm.many": "Permanently delete all {count} messages in {folder}? This cannot be undone.",
+	"empty.confirm.single": "Permanently delete the 1 message in {folder}? This cannot be undone.",
+	"empty.confirm.multiple": "Permanently delete all {count} messages in {folder}? This cannot be undone.",
 	"empty.confirm.all": "Permanently delete every message in {folder}? This cannot be undone.",
 	"error.updateSelected": "Unable to update selected messages",
 	"error.emptyFolder": "Unable to empty folder",
@@ -1825,7 +1823,6 @@
 	"agent.queue.sendNow": "Send now",
 	"agent.queue.remove": "Remove queued message",
 	"agent.loadingConversation": "Loading conversation",
-	"agent.duration.lessThanSecond": "<1s",
 	"importPage.others": "Others",
 	"importPage.selectSections": "Select source sections",
 	"importPage.selectMailboxFirst": "Select a mailbox first",
@@ -1862,6 +1859,5 @@
 	"layout.resizeMenu": "Resize left menu",
 	"nav.loadingPage": "Loading page",
 	"message.blockRemote": "Block remote content",
-	"message.allowRemote": "Allow remote content",
-	"settingsPage.rules.title": "Rules"
+	"message.allowRemote": "Allow remote content"
 }

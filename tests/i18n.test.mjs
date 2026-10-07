@@ -66,11 +66,31 @@ await bundleI18n(outfile);
 const i18n = await import(pathToFileURL(outfile).href);
 const en = JSON.parse(readFileSync(join(root, "src/lib/i18n/en.json"), "utf8"));
 
+const CATEGORIES = ["zero", "one", "two", "few", "many", "other"];
+const categoryOf = (key) => CATEGORIES.find((category) => key.endsWith(`.${category}`));
+const baseOf = (key) => categoryOf(key) ? key.slice(0, key.lastIndexOf(".")) : key;
+const placeholders = (text) => [...new Set([...text.matchAll(/\{(\w+)\}/g)].map((match) => match[1]))].sort();
+// A plural group is `base.other` plus any other CLDR categories; catalogs may carry the categories their language needs.
+const pluralBases = new Set(Object.keys(en).filter((key) => key.endsWith(".other")).map(baseOf));
+const isPluralKey = (key) => categoryOf(key) && pluralBases.has(baseOf(key));
+
 test("every registered catalog has the English keys and nonempty messages and label", () => {
-	for (const { messages: catalog, label } of Object.values(i18n.locales)) {
-		assert.ok(label.trim().length > 0);
-		assert.deepEqual(Object.keys(catalog).sort(), Object.keys(en).sort());
-		for (const value of Object.values(catalog)) assert.ok(typeof value === "string" && value.trim().length > 0);
+	for (const [code, { messages: catalog, label }] of Object.entries(i18n.locales)) {
+		assert.ok(label.trim().length > 0, code);
+		const plain = (keys) => keys.filter((key) => !isPluralKey(key)).sort();
+		assert.deepEqual(plain(Object.keys(catalog)), plain(Object.keys(en)), `${code}: keys differ from English`);
+		for (const base of pluralBases) assert.ok(typeof catalog[`${base}.other`] === "string", `${code}: ${base}.other is required`);
+		for (const key of Object.keys(catalog)) {
+			if (isPluralKey(key)) assert.ok(`${baseOf(key)}.other` in catalog, `${code}: ${key} has no .other`);
+			const value = catalog[key];
+			assert.ok(typeof value === "string" && value.trim().length > 0, `${code}: ${key} is empty`);
+			const reference = isPluralKey(key) ? en[`${baseOf(key)}.other`] : en[key];
+			// A plural variant may drop {count} ("this message"), but never invent a placeholder.
+			const allowed = placeholders(reference);
+			const used = placeholders(value);
+			if (isPluralKey(key)) assert.ok(used.every((name) => allowed.includes(name)), `${code}: ${key} uses an unknown {placeholder}`);
+			else assert.deepEqual(used, allowed, `${code}: ${key} changes its {placeholders}`);
+		}
 	}
 });
 

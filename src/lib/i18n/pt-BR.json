@@ -114,7 +114,6 @@
 	"source.couldNotCopy": "Não foi possível copiar",
 	"source.copied": "Copiado",
 	"source.copy": "Copiar para a área de transferência",
-	"common.notSpamOrInbox": "Não é spam",
 	"actions.error.update": "Não foi possível atualizar a mensagem",
 	"actions.error.delete": "Não foi possível excluir a mensagem",
 	"actions.error.trashRule": "Não foi possível criar a regra de lixeira",
@@ -136,7 +135,6 @@
 	"folder.empty.archived": "Nenhum e-mail arquivado",
 	"folder.empty.spam": "Nenhum spam",
 	"folder.empty.trash": "Nenhum e-mail na lixeira",
-	"folder.empty.custom": "Nenhum e-mail",
 	"list.noMatch": "Nenhuma mensagem corresponde a estes filtros",
 	"list.draft": "Rascunho",
 	"list.unknownSender": "Remetente desconhecido",
@@ -160,8 +158,8 @@
 	"list.emptyFailed": "Não foi possível esvaziar {folder}. Tente novamente.",
 	"delete.confirm.one": "Excluir esta mensagem permanentemente? Esta ação não pode ser desfeita.",
 	"delete.confirm.other": "Excluir estas {count} mensagens permanentemente? Esta ação não pode ser desfeita.",
-	"empty.confirm.one": "Excluir permanentemente a única mensagem em {folder}? Esta ação não pode ser desfeita.",
-	"empty.confirm.many": "Excluir permanentemente todas as {count} mensagens em {folder}? Esta ação não pode ser desfeita.",
+	"empty.confirm.single": "Excluir permanentemente a única mensagem em {folder}? Esta ação não pode ser desfeita.",
+	"empty.confirm.multiple": "Excluir permanentemente todas as {count} mensagens em {folder}? Esta ação não pode ser desfeita.",
 	"empty.confirm.all": "Excluir permanentemente todas as mensagens em {folder}? Esta ação não pode ser desfeita.",
 	"error.updateSelected": "Não foi possível atualizar as mensagens selecionadas",
 	"error.emptyFolder": "Não foi possível esvaziar a pasta",
@@ -1825,7 +1823,6 @@
 	"agent.queue.sendNow": "Enviar agora",
 	"agent.queue.remove": "Remover mensagem da fila",
 	"agent.loadingConversation": "Carregando conversa",
-	"agent.duration.lessThanSecond": "<1s",
 	"importPage.others": "Outras",
 	"importPage.selectSections": "Selecione as seções de origem",
 	"importPage.selectMailboxFirst": "Selecione uma caixa de correio primeiro",
@@ -1862,6 +1859,5 @@
 	"layout.resizeMenu": "Redimensionar menu lateral",
 	"nav.loadingPage": "Carregando página",
 	"message.blockRemote": "Bloquear conteúdo remoto",
-	"message.allowRemote": "Permitir conteúdo remoto",
-	"settingsPage.rules.title": "Regras"
+	"message.allowRemote": "Permitir conteúdo remoto"
 }

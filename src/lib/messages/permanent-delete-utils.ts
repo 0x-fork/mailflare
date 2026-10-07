@@ -22,6 +22,6 @@ export function getPermanentDeleteConfirmText(count: number, t: Translator = def
 
 export function getEmptyFolderConfirmText(folder: PermanentDeleteFolder, total?: number, t: Translator = defaultTranslator): string {
 	const vars = { count: total ?? 0, folder: getPermanentDeleteFolderLabel(folder, t) };
-	if (total === 1) return t("empty.confirm.one", vars);
-	return total && total > 1 ? t("empty.confirm.many", vars) : t("empty.confirm.all", vars);
+	if (total === 1) return t("empty.confirm.single", vars);
+	return total && total > 1 ? t("empty.confirm.multiple", vars) : t("empty.confirm.all", vars);
 }
