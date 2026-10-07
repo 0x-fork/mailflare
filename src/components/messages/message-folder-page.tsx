@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import type { MouseEvent } from "react";
-import { Archive, ChevronLeft, ChevronRight, ListFilter, Mail, MailOpen } from "lucide-react";
+import { Archive, ChevronLeft, ChevronRight, ListFilter, Mail, MailOpen, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tooltip } from "@/components/ui/tooltip";
@@ -34,7 +34,14 @@ import {
 	formatEmailPageTitle,
 	getMailboxAddress,
 	runBulkMessageAction,
+	emptyMessageFolder,
 } from "./utils";
+import {
+	getEmptyFolderConfirmText,
+	getEmptyFolderLabel,
+	getPermanentDeleteConfirmText,
+	supportsPermanentDelete,
+} from "@/lib/messages/permanent-delete-utils";
 import clsx from "clsx";
 
 const pageSize = 25;
@@ -282,6 +289,7 @@ export function MessageFolderPage({
 		Array<{ id: string; read: boolean }>
 	>([]);
 	const [pendingBulkAction, setPendingBulkAction] = useState(false);
+	const [emptyingFolder, setEmptyingFolder] = useState(false);
 	const [unreadOnly, setUnreadOnly] = useState(false);
 	const [conversationView] = useConversationView();
 	const grouped = conversationView && config.folder !== "drafts";
@@ -364,8 +372,28 @@ export function MessageFolderPage({
 		});
 	}
 
+	const permanentDeleteFolder = !config.folderId && supportsPermanentDelete(config.folder) ? config.folder : null;
+	async function emptyFolder() {
+		if (!permanentDeleteFolder || !selectedMailbox?.id) return;
+		if (!window.confirm(getEmptyFolderConfirmText(permanentDeleteFolder, titleTotal))) return;
+		setEmptyingFolder(true);
+		try {
+			await emptyMessageFolder(selectedMailbox.id, permanentDeleteFolder);
+			setOffset(0);
+		} catch (error) {
+			console.error(error);
+			window.alert(`Could not empty ${permanentDeleteFolder === "trash" ? "Trash" : "Spam"}. Please try again.`);
+		} finally {
+			setEmptyingFolder(false);
+		}
+	}
+
 	async function runSelectedAction(action: BulkMessageAction, folderId?: string) {
 		if (selectedIds.length === 0) return;
+		if (action === "delete") {
+			const ids = expandSelectedIds(selectedIds);
+			if (!window.confirm(getPermanentDeleteConfirmText(ids.length))) return;
+		}
 
 		setPendingBulkAction(true);
 		const previousMessages = messages;
@@ -467,6 +495,22 @@ export function MessageFolderPage({
 									className={unreadOnly ? "bg-blue-100 text-blue-700 hover:bg-blue-100" : undefined}
 								>
 									<ListFilter className="h-4 w-4" />
+								</Button>
+							</Tooltip>
+						)}
+						{permanentDeleteFolder && (
+							<Tooltip label={getEmptyFolderLabel(permanentDeleteFolder)}>
+								<Button
+									type="button"
+									variant="ghost"
+									size="sm"
+									aria-label={getEmptyFolderLabel(permanentDeleteFolder)}
+									disabled={emptyingFolder || isLoading || total === 0}
+									onClick={() => void emptyFolder()}
+									className="gap-1.5 text-xs font-medium text-red-600 hover:text-red-700"
+								>
+									<Trash2 className="h-4 w-4" />
+									{!compact && <span className="max-md:hidden">{emptyingFolder ? "Emptying…" : getEmptyFolderLabel(permanentDeleteFolder)}</span>}
 								</Button>
 							</Tooltip>
 						)}

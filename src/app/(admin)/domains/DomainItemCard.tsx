@@ -188,7 +188,15 @@ export default function DomainItemCard({
           >
             <DropdownMenu.Item
               disabled={remove.isPending}
-              onSelect={() => remove.mutate(item.id)}
+              onSelect={() => {
+                // Removing a domain deletes its mailboxes (and all their mail)
+                // and disables Email Routing on the zone, so require the hostname.
+                const typed = window.prompt(
+                  `Remove ${item.hostname}? This permanently deletes every mailbox on this domain, including all their messages, and turns off Email Routing for the zone.\n\nType ${item.hostname} to confirm.`,
+                );
+                if (typed?.trim().toLowerCase() !== item.hostname.toLowerCase()) return;
+                remove.mutate(item.id);
+              }}
               className="flex cursor-pointer items-center gap-2 rounded-md px-3 py-2 text-red-600 outline-none hover:bg-red-50 focus:bg-red-50 data-[disabled]:pointer-events-none data-[disabled]:opacity-50"
             >
               <Trash2 className="h-4 w-4" />

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { useSelectedMailbox } from "@/components/mailbox-provider";
 import { useMailboxFolders } from "./use-mailbox-folders";
 import { Tooltip } from "@/components/ui/tooltip";
+import { supportsPermanentDelete } from "@/lib/messages/permanent-delete-utils";
 import type { BulkMessageAction } from "@/app/api/messages/bulk/types";
 import type { BulkMessageToolbarProps } from "./types";
 
@@ -32,6 +33,8 @@ export function BulkMessageToolbar({
 	const trash = folder === "trash"
 		? { action: "inbox", label: "Restore", Icon: Undo2 }
 		: { action: "trash", label: "Delete", Icon: Trash2 };
+	// Trash and Spam also offer the irreversible delete; the page confirms before running it.
+	const canDeleteForever = supportsPermanentDelete(folder);
 	const moveOptions = [
 		{ value: "inbox", label: "Inbox", Icon: Inbox, hidden: !folder || folder === "inbox" },
 		{ value: "archive", label: "Archived", Icon: Archive, hidden: folder === "archived" },
@@ -63,6 +66,13 @@ export function BulkMessageToolbar({
 					<trash.Icon className="h-4 w-4" />
 				</Button>
 			</Tooltip>
+			{canDeleteForever && (
+				<Tooltip label="Delete forever">
+					<Button variant="ghost" size="sm" className="text-red-600 hover:text-red-700" onClick={() => onAction("delete")} disabled={pending} aria-label="Delete forever">
+						<Trash2 className="h-4 w-4" />
+					</Button>
+				</Tooltip>
+			)}
 			<Tooltip label={hasUnreadSelection ? "Mark as read" : "Mark as unread"}>
 				<Button
 					variant="ghost"
@@ -120,6 +130,9 @@ export function BulkMessageToolbar({
 					<DropdownMenu.Content align="end" sideOffset={4} className="z-[130] min-w-44 rounded-xl border border-neutral-200 bg-white p-1 shadow-xl md:hidden">
 						<DropdownMenu.Item className={menuItemClass} onSelect={() => onAction(archive.action as BulkMessageAction)}><archive.Icon className="h-4 w-4" />{archive.label}</DropdownMenu.Item>
 						<DropdownMenu.Item className={menuItemClass} onSelect={() => onAction(spam.action as BulkMessageAction)}><spam.Icon className="h-4 w-4" />{spam.label}</DropdownMenu.Item>
+						{canDeleteForever && (
+							<DropdownMenu.Item className={`${menuItemClass} text-red-600`} onSelect={() => onAction("delete")}><Trash2 className="h-4 w-4" />Delete forever</DropdownMenu.Item>
+						)}
 						<DropdownMenu.Separator className="my-1 h-px bg-neutral-100" />
 						<DropdownMenu.Item className={menuItemClass} onSelect={onClearSelection}><X className="h-4 w-4" />Clear selection</DropdownMenu.Item>
 					</DropdownMenu.Content>

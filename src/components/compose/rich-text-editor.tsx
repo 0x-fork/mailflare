@@ -15,6 +15,8 @@ import {
 } from "lucide-react";
 import { Tooltip } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
+import { EmailHtmlRenderer } from "@/components/messages/email-html-renderer";
+import { sanitizeEmailHtml, sanitizeEditorHtml } from "@/lib/email/html";
 import type { RichTextEditorProps, ToolbarCommand } from "./rich-text-editor-types";
 
 const COMMANDS: ToolbarCommand[] = [
@@ -54,7 +56,9 @@ export function RichTextEditor({
 	// Keep the DOM in step with the value without resetting the caret on every keystroke.
 	useEffect(() => {
 		const element = editorRef.current;
-		if (element && element.innerHTML !== value) element.innerHTML = value;
+		if (!element) return;
+		const safeValue = sanitizeEditorHtml(value);
+		if (element.innerHTML !== safeValue) element.innerHTML = safeValue;
 	}, [value]);
 
 	useEffect(() => {
@@ -76,7 +80,8 @@ export function RichTextEditor({
 	}, []);
 
 	function emit() {
-		onChange(editorRef.current?.innerHTML ?? "");
+		// Export validated original resource addresses, never the blocked preview placeholders.
+		onChange(sanitizeEmailHtml(editorRef.current?.innerHTML ?? "", { forOutgoing: true }) ?? "");
 	}
 
 	function run(command: string, commandValue?: string) {
@@ -162,10 +167,7 @@ export function RichTextEditor({
 							•••
 						</button>
 						{showQuoted && (
-							<div
-								className="email-body mt-2 max-w-none border-l-2 border-neutral-200 pl-3 text-sm text-neutral-600"
-								dangerouslySetInnerHTML={{ __html: quotedHtml }}
-							/>
+							<EmailHtmlRenderer className="mt-2" html={quotedHtml} preserveLeadingQuote />
 						)}
 					</div>
 				)}

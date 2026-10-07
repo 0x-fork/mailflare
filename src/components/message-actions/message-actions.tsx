@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Tooltip } from "@/components/ui/tooltip";
 import type { BulkMessageAction } from "@/app/api/messages/bulk/types";
 import type { MessageActionsProps, ReplyMode } from "./types";
+import { getPermanentDeleteConfirmText, supportsPermanentDelete } from "@/lib/messages/permanent-delete-utils";
 import {
 	confirmTrashWithoutUnsubscribe,
 	blockMessageContact,
@@ -19,6 +20,7 @@ import {
 	createReplyDraft,
 	createTrashSenderRule,
 	getMessageActionRedirect,
+	getMessageBackHref,
 	getMoveMessageActions,
 	getReplyRecipients,
 	getReplyThreading,
@@ -70,6 +72,26 @@ export function MessageActions({
 			setPendingAction(null);
 		}
 	}, [messageId, direction, router]);
+
+	// In Trash and Spam the delete button removes the message for good instead of
+	// being a no-op, after the user confirms.
+	const canDeleteForever = supportsPermanentDelete(status);
+	const deleteForever = useCallback(async () => {
+		if (!window.confirm(getPermanentDeleteConfirmText(1))) return;
+		setMoreOpen(false);
+		setPendingAction("delete");
+		setError(null);
+		try {
+			await runSingleMessageAction(messageId, "delete");
+			router.push(getMessageBackHref(direction, status));
+			router.refresh();
+		} catch {
+			setError("Could not delete message");
+			setPendingAction(null);
+		}
+	}, [messageId, direction, status, router]);
+	const onTrashClick = () => (canDeleteForever ? void deleteForever() : void runAction("trash"));
+	const trashLabel = canDeleteForever ? "Delete forever" : "Move to trash";
 
 	const replyable = useMemo(() => message ?? {
 		direction,
@@ -245,9 +267,9 @@ export function MessageActions({
 					<Button
 						variant="ghost"
 						size="roundedSM"
-						aria-label="Move to trash"
-						disabled={disabled || status === "trash"}
-						onClick={() => runAction("trash")}
+						aria-label={trashLabel}
+						disabled={disabled}
+						onClick={onTrashClick}
 					>
 						<Trash2 size={iconSize} />
 					</Button>
@@ -286,13 +308,14 @@ export function MessageActions({
 					<ShieldAlert size={iconSize} />
 				</Button>
 			</Tooltip>
-			<Tooltip label={shortcutsEnabled ? "Delete (#)" : "Delete"}>
+			<Tooltip label={canDeleteForever ? "Delete forever" : shortcutsEnabled ? "Delete (#)" : "Delete"}>
 				<Button
 					variant="ghost"
 					size="roundedSM"
-					aria-label={shortcutsEnabled ? "Move to trash (#)" : "Move to trash"}
-					disabled={disabled || status === "trash"}
-					onClick={() => runAction("trash")}
+					aria-label={canDeleteForever ? trashLabel : shortcutsEnabled ? "Move to trash (#)" : "Move to trash"}
+					disabled={disabled}
+					onClick={onTrashClick}
+					className={canDeleteForever ? "text-red-600 hover:text-red-700" : undefined}
 				>
 					<Trash2 size={iconSize} />
 				</Button>
