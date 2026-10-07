@@ -17,6 +17,7 @@ export const locales = {
 	es: { label: "Español", load: async () => (await import("./es.json")).default },
 	fr: { label: "Français", load: async () => (await import("./fr.json")).default },
 	de: { label: "Deutsch", load: async () => (await import("./de.json")).default },
+	ru: { label: "Русский", load: async () => (await import("./ru.json")).default },
 } satisfies Record<string, LocaleEntry>;
 
 export type Locale = keyof typeof locales;
