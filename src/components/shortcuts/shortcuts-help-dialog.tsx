@@ -12,6 +12,18 @@ interface ShortcutsHelpDialogProps {
   shortcuts: ShortcutDefinition[];
 }
 
+// Puts a styled key badge where the translation has its {key} placeholder.
+function withKey(text: string, key: string) {
+  const [before, after = ""] = text.split("{key}");
+  return (
+    <>
+      {before}
+      <kbd className="px-1.5 py-0.5 bg-neutral-200 text-neutral-700 rounded font-mono">{key}</kbd>
+      {after}
+    </>
+  );
+}
+
 export function ShortcutsHelpDialog({
   isOpen,
   onClose,
@@ -101,12 +113,8 @@ export function ShortcutsHelpDialog({
 
         {/* Footer */}
         <div className="px-6 py-3 bg-neutral-50 border-t border-neutral-100 flex items-center justify-between text-xs text-neutral-400">
-          <span>
-            {t("shortcutsHelp.pressToToggle", { key: "?" })}
-          </span>
-          <span>
-            {t("shortcutsHelp.pressToClose", { key: "ESC" })}
-          </span>
+          <span>{withKey(t("shortcutsHelp.pressToToggle", { key: "{key}" }), "?")}</span>
+          <span>{withKey(t("shortcutsHelp.pressToClose", { key: "{key}" }), "ESC")}</span>
         </div>
       </div>
     </div>
