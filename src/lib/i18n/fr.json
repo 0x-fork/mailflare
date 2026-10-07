@@ -1,6 +1,6 @@
 {
 	"navigation.compose": "Écrire",
-	"navigation.inbox": "Boîte de réception",
+	"navigation.inbox": "Réception",
 	"navigation.starred": "Suivis",
 	"navigation.snoozed": "Reportés",
 	"navigation.sent": "Envoyés",
@@ -321,7 +321,7 @@
 	"settings.nav.menu": "Menu des paramètres",
 	"settings.nav.settings": "Paramètres",
 	"settings.nav.account": "Compte",
-	"settings.nav.inbox": "Boîte de réception",
+	"settings.nav.inbox": "Réception",
 	"settings.nav.security": "Sécurité",
 	"settings.nav.apiKeys": "Clés d'API",
 	"settings.nav.appPasswords": "Mots de passe d'application",

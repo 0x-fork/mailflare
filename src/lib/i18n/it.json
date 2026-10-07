@@ -1,6 +1,6 @@
 {
 	"navigation.compose": "Scrivi",
-	"navigation.inbox": "Posta in arrivo",
+	"navigation.inbox": "In arrivo",
 	"navigation.starred": "Speciali",
 	"navigation.snoozed": "Posticipate",
 	"navigation.sent": "Inviate",
@@ -321,7 +321,7 @@
 	"settings.nav.menu": "Menu impostazioni",
 	"settings.nav.settings": "Impostazioni",
 	"settings.nav.account": "Account",
-	"settings.nav.inbox": "Posta in arrivo",
+	"settings.nav.inbox": "In arrivo",
 	"settings.nav.security": "Sicurezza",
 	"settings.nav.apiKeys": "Chiavi API",
 	"settings.nav.appPasswords": "Password per app",

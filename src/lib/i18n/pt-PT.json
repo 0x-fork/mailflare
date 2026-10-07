@@ -1,6 +1,6 @@
 {
 	"navigation.compose": "Escrever",
-	"navigation.inbox": "Caixa de entrada",
+	"navigation.inbox": "Entrada",
 	"navigation.starred": "Com estrela",
 	"navigation.snoozed": "Adiados",
 	"navigation.sent": "Enviados",
@@ -321,7 +321,7 @@
 	"settings.nav.menu": "Menu de definições",
 	"settings.nav.settings": "Definições",
 	"settings.nav.account": "Conta",
-	"settings.nav.inbox": "Caixa de entrada",
+	"settings.nav.inbox": "Entrada",
 	"settings.nav.security": "Segurança",
 	"settings.nav.apiKeys": "Chaves de API",
 	"settings.nav.appPasswords": "Palavras-passe de aplicação",

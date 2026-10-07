@@ -1,11 +1,11 @@
 {
 	"navigation.compose": "എഴുതുക",
 	"navigation.inbox": "ഇൻബോക്സ്",
-	"navigation.starred": "നക്ഷത്രമിട്ടവ",
+	"navigation.starred": "നക്ഷത്രം",
 	"navigation.snoozed": "മാറ്റിവച്ചവ",
 	"navigation.sent": "അയച്ചവ",
 	"navigation.drafts": "കരടുകൾ",
-	"navigation.archived": "ആർക്കൈവ് ചെയ്തവ",
+	"navigation.archived": "ആർക്കൈവ്",
 	"navigation.spam": "സ്പാം",
 	"navigation.trash": "ചവറ്റുകുട്ട",
 	"navigation.more": "കൂടുതൽ...",

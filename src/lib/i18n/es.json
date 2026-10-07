@@ -1,6 +1,6 @@
 {
 	"navigation.compose": "Redactar",
-	"navigation.inbox": "Bandeja de entrada",
+	"navigation.inbox": "Recibidos",
 	"navigation.starred": "Destacados",
 	"navigation.snoozed": "Pospuestos",
 	"navigation.sent": "Enviados",
@@ -321,7 +321,7 @@
 	"settings.nav.menu": "Menú de configuración",
 	"settings.nav.settings": "Configuración",
 	"settings.nav.account": "Cuenta",
-	"settings.nav.inbox": "Bandeja de entrada",
+	"settings.nav.inbox": "Recibidos",
 	"settings.nav.security": "Seguridad",
 	"settings.nav.apiKeys": "Claves de API",
 	"settings.nav.appPasswords": "Contraseñas de aplicación",

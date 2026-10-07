@@ -1,6 +1,6 @@
 {
 	"navigation.compose": "เขียนอีเมล",
-	"navigation.inbox": "กล่องจดหมายเข้า",
+	"navigation.inbox": "กล่องจดหมาย",
 	"navigation.starred": "ติดดาว",
 	"navigation.snoozed": "เลื่อนเวลา",
 	"navigation.sent": "ส่งแล้ว",
@@ -321,7 +321,7 @@
 	"settings.nav.menu": "เมนูการตั้งค่า",
 	"settings.nav.settings": "การตั้งค่า",
 	"settings.nav.account": "บัญชี",
-	"settings.nav.inbox": "กล่องจดหมายเข้า",
+	"settings.nav.inbox": "กล่องจดหมาย",
 	"settings.nav.security": "ความปลอดภัย",
 	"settings.nav.apiKeys": "คีย์ API",
 	"settings.nav.appPasswords": "รหัสผ่านแอป",

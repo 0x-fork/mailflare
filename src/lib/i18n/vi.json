@@ -1,8 +1,8 @@
 {
 	"navigation.compose": "Soạn thư",
 	"navigation.inbox": "Hộp thư đến",
-	"navigation.starred": "Có gắn sao",
-	"navigation.snoozed": "Đã tạm hoãn",
+	"navigation.starred": "Gắn sao",
+	"navigation.snoozed": "Tạm hoãn",
 	"navigation.sent": "Đã gửi",
 	"navigation.drafts": "Thư nháp",
 	"navigation.archived": "Lưu trữ",

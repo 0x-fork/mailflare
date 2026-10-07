@@ -1,10 +1,10 @@
 {
 	"navigation.compose": "Napisz",
 	"navigation.inbox": "Odebrane",
-	"navigation.starred": "Oznaczone gwiazdką",
+	"navigation.starred": "Z gwiazdką",
 	"navigation.snoozed": "Odłożone",
 	"navigation.sent": "Wysłane",
-	"navigation.drafts": "Wersje robocze",
+	"navigation.drafts": "Robocze",
 	"navigation.archived": "Zarchiwizowane",
 	"navigation.spam": "Spam",
 	"navigation.trash": "Kosz",
