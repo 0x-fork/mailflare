@@ -384,7 +384,7 @@ export default function CalendarPage() {
 
   return (
     <div className={clsx("flex h-full min-h-0 flex-col bg-[#f6f8fc] pl-3 max-md:pl-0 lg:flex-row transition-[gap] duration-200 ease-in-out motion-reduce:transition-none", minimal ? "gap-0" : "gap-3")}>
-      <Toaster position="bottom-right" />
+      <Toaster position="bottom-left" />
       {loading && <RouteLoadingBarPortal />}
       {headerTarget && createPortal(
         <div className="flex min-w-0 flex-1 items-center justify-between gap-3 ">

@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ExternalLink, ImagePlus, LockKeyhole, Palette } from "lucide-react";
+import Link from "next/link";
+import { ArrowRight, ExternalLink, ImagePlus, LockKeyhole, Palette } from "lucide-react";
 import { useLanguage } from "@/components/language-provider";
 import { useBranding } from "@/components/branding-provider";
 import { Button } from "@/components/ui/button";
@@ -37,8 +38,9 @@ export default function BrandingPage() {
 						<CardDescription>{t("branding.originalNote")}</CardDescription>
 					</CardHeader>
 					<CardContent className="flex flex-col gap-3 pt-6 sm:flex-row">
-						<Button asChild><a href="https://app.paymug.co/buy/mailflare-pro" target="_blank" rel="noopener noreferrer">{t("branding.buyPro")} <ExternalLink className="h-4 w-4" /></a></Button>
-						<Button asChild variant="outline"><a href="https://app.paymug.co/buy/mailflare-team" target="_blank" rel="noopener noreferrer">{t("branding.buyTeam")} <ExternalLink className="h-4 w-4" /></a></Button>
+						<Button asChild>
+							<Link href="/licenses">{t("license.view")}</Link>
+						</Button>
 					</CardContent>
 				</Card>
 			</div>

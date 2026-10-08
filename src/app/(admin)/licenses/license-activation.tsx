@@ -84,6 +84,7 @@ export function LicenseActivation({ children }: { children?: ReactNode }) {
 						<p className="mt-2 text-sm leading-6 text-neutral-600">
 							{t("licenses.activatedBody", { plan: formatLicensePlan(license.plan, t) })}
 						</p>
+						<p className="mt-1 text-sm text-neutral-500">{license.seatLimit === null ? t("licenses.seatsUnlimited") : t("licenses.seats", { limit: license.seatLimit })}</p>
 						<Button type="button" variant="outline" className="mt-5" onClick={() => void submit("deactivate")} disabled={action !== null}>
 							{action === "deactivate" ? t("licenses.deactivating") : t("licenses.deactivate")}
 						</Button>

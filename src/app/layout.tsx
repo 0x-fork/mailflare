@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
-import { cookies } from "next/headers";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Providers } from "@/components/providers";
 import { LanguageProvider } from "@/components/language-provider";
-import { DEFAULT_LOCALE, LOCALE_COOKIE, getDirection, loadMessages, resolveLocale } from "@/lib/i18n/utils";
+import { DEFAULT_LOCALE, getDirection } from "@/lib/i18n/utils";
+import { getRequestLocale, loadServerMessages } from "@/lib/i18n/server";
 import { sidebarBootstrapScript } from "@/components/sidebar-state-utils";
 import { themeBootstrapScript } from "@/components/theme-utils";
 import "./globals.css";
@@ -44,8 +44,8 @@ export const metadata: Metadata = {
 };
 
 export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-	const locale = resolveLocale((await cookies()).get(LOCALE_COOKIE)?.value);
-	const messages = locale === DEFAULT_LOCALE ? undefined : await loadMessages(locale);
+	const locale = await getRequestLocale();
+	const messages = locale === DEFAULT_LOCALE ? undefined : await loadServerMessages(locale);
 	return (
 		<html lang={locale} dir={getDirection(locale)} suppressHydrationWarning>
 			<head>

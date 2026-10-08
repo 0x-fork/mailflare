@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { CalendarDays, Check, ChevronDown, Inbox, LogOut, Settings, ShieldCheck, UserPlus, UserRound, UsersRound } from "lucide-react";
+import { CalendarDays, Check, HardDrive, ChevronDown, Inbox, LogOut, Settings, ShieldCheck, UserPlus, UserRound, UsersRound } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useLanguage } from "@/components/language-provider";
 import { useSelectedMailbox } from "@/components/mailbox-provider";
@@ -309,6 +309,14 @@ export function MailboxSelector({ initialUser }: MailboxSelectorProps = {}) {
 						>
 							<CalendarDays size={18} className="text-neutral-600" />
 							{t("account.calendar")}
+						</Link>
+						<Link
+							href="/drive"
+							onClick={() => setOpen(false)}
+							className="mt-1 flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium text-neutral-700 hover:bg-[#f2f6fc]"
+						>
+							<HardDrive size={18} className="text-neutral-600" />
+							{t("account.drive")}
 						</Link>
 						<Link
 							href="/settings/account"

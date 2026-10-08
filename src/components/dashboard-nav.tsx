@@ -314,8 +314,9 @@ export function DashboardNav({ className }: { className?: string }) {
           )}
         </NavSectionHeader>
       )}
+      
       {!minimal && foldersSectionOpen && folders.length === 0 && (
-        <div className="mx-6 rounded-lg border border-dashed border-neutral-200 px-3 py-3 text-xs text-neutral-400">
+        <div className="px-4 py-1.5 text-xs text-neutral-500">
           {t("navigation.noFolders")}
         </div>
       )}

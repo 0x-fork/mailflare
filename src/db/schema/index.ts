@@ -356,6 +356,8 @@ export const messageAttachments = sqliteTable(
 			.default("attachment"),
 		contentId: text("content_id"),
 		r2Key: text("r2_key").notNull().unique(),
+		/** Set when the attachment is moved to the Drive trash; hidden from the email until restored, purged after 30 days. */
+		trashedAt: integer("trashed_at", { mode: "timestamp" }),
 		createdAt: integer("created_at", { mode: "timestamp" })
 			.notNull()
 			.$defaultFn(() => new Date()),
@@ -673,6 +675,8 @@ export const appSettings = sqliteTable("app_settings", {
 	id: text("id").primaryKey(),
 	appName: text("app_name").notNull().default("Mailflare"),
 	outboundAttachmentMaxMb: integer("outbound_attachment_max_mb").notNull().default(25),
+	/** Per-user Drive storage cap in bytes; null means unlimited. */
+	driveStorageLimitBytes: integer("drive_storage_limit_bytes"),
 	resendApiKey: text("resend_api_key"),
 	/** JSON: AWS access key, secret and region (see src/lib/aws/config.ts). */
 	awsConfig: text("aws_config"),
@@ -703,6 +707,8 @@ export const licenseSettings = sqliteTable("license_settings", {
 		.notNull()
 		.default("inactive"),
 	features: text("features").notNull().default("[]"),
+	// Account seats from Paymug's seatLimit; null is unlimited. Rows predating seats keep one.
+	seatLimit: integer("seat_limit").default(1),
 	activatedAt: integer("activated_at", { mode: "timestamp" }),
 	validatedAt: integer("validated_at", { mode: "timestamp" }),
 	updatedAt: integer("updated_at", { mode: "timestamp" })
@@ -823,6 +829,45 @@ export const mcpKeyMailboxes = sqliteTable("mcp_key_mailboxes", {
 	mailboxId: text("mailbox_id").notNull().references(() => mailboxes.id, { onDelete: "cascade" }),
 }, (t) => [uniqueIndex("mcp_key_mailbox_idx").on(t.keyId, t.mailboxId)]);
 
+export const driveItems = sqliteTable("drive_items", {
+	id: text("id").primaryKey(),
+	ownerId: text("owner_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+	parentId: text("parent_id"),
+	kind: text("kind", { enum: ["file", "folder"] }).notNull(),
+	name: text("name").notNull(),
+	r2Key: text("r2_key"),
+	size: integer("size").notNull().default(0),
+	contentType: text("content_type").notNull().default("application/octet-stream"),
+	// Set while a multipart upload is in flight; such rows stay hidden until the upload completes.
+	uploadId: text("upload_id"),
+	uploadPartSize: integer("upload_part_size"),
+	uploadFingerprint: text("upload_fingerprint"),
+	linkToken: text("link_token"),
+	trashedAt: integer("trashed_at", { mode: "timestamp" }),
+	createdAt: integer("created_at", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
+	updatedAt: integer("updated_at", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
+}, (t) => [
+	index("drive_items_owner_parent_idx").on(t.ownerId, t.parentId),
+	uniqueIndex("drive_items_link_token_idx").on(t.linkToken),
+]);
+
+export const driveUploadParts = sqliteTable("drive_upload_parts", {
+	itemId: text("item_id").notNull().references(() => driveItems.id, { onDelete: "cascade" }),
+	partNumber: integer("part_number").notNull(),
+	etag: text("etag").notNull(),
+}, (t) => [uniqueIndex("drive_upload_parts_idx").on(t.itemId, t.partNumber)]);
+
+export const driveShares = sqliteTable("drive_shares", {
+	id: text("id").primaryKey(),
+	itemId: text("item_id").notNull().references(() => driveItems.id, { onDelete: "cascade" }),
+	userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+	role: text("role", { enum: ["view", "edit"] }).notNull().default("view"),
+	createdAt: integer("created_at", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
+}, (t) => [
+	uniqueIndex("drive_shares_item_user_idx").on(t.itemId, t.userId),
+	index("drive_shares_user_idx").on(t.userId),
+]);
+
 export const schema = {
 	users,
 	domains,
@@ -848,6 +893,9 @@ export const schema = {
 	webhookDeliveries,
 	sessions,
 	pushSubscriptions,
+	driveItems,
+	driveUploadParts,
+	driveShares,
 	auditLogs,
 	backupSettings,
 	backups,

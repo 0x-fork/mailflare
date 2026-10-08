@@ -11,6 +11,18 @@ const outDir = mkdtempSync(join(tmpdir(), "mailflare-i18n-"));
 after(() => rmSync(outDir, { recursive: true, force: true }));
 const outfile = join(outDir, "i18n.mjs");
 
+// Catalogs other than English are static assets; tests serve them from public/ for both the browser
+// `fetch` and the server's ASSETS binding. `testCatalogs` adds in-memory catalogs for an isolated locale.
+globalThis.testCatalogs = {};
+globalThis.readTestAsset = async (input) => {
+	const path = new URL(String(input), "https://mailflare.local").pathname;
+	const code = path.match(/^\/locales\/([\w-]+)\.json$/)?.[1];
+	if (code && globalThis.testCatalogs[code]) return Response.json(globalThis.testCatalogs[code]);
+	const file = join(root, "public", path);
+	return existsSync(file) ? new Response(readFileSync(file)) : new Response("Not found", { status: 404 });
+};
+globalThis.fetch = globalThis.readTestAsset;
+
 async function bundleI18n(outfile, extraLocale = false) {
 	await build({
 		stdin: {
@@ -49,15 +61,17 @@ async function bundleI18n(outfile, extraLocale = false) {
 			setup(builder) {
 				if (extraLocale) builder.onLoad({ filter: /\/i18n\/locales\.ts$/ }, ({ path }) => ({
 					contents: readFileSync(path, "utf8").replace("export const locales = {", `export const locales = {
-						xx: { label: "Testlandic", dir: "rtl", load: async () => ({ ...en, "navigation.inbox": "Entrada", "navigation.inbox.one": "{count} entrada", "navigation.inbox.other": "{count} entradas", "language.label": "Idioma" }) },`),
+						xx: { label: "Testlandic", dir: "rtl" },`),
 					loader: "ts",
 				}));
-				builder.onResolve({ filter: /^(next\/headers|next\/font\/google|@\/components\/providers)$/ }, (args) => ({ path: args.path, namespace: "stub" }));
+				builder.onResolve({ filter: /^(next\/headers|next\/font\/google|@\/components\/providers|@\/lib\/cloudflare)$/ }, (args) => ({ path: args.path, namespace: "stub" }));
 				builder.onLoad({ filter: /.*/, namespace: "stub" }, ({ path }) => ({ contents: path === "next/headers"
 					? 'export async function cookies() { return { get(name) { return name === "mailflare-locale" && globalThis.testLocaleCookie !== undefined ? { value: globalThis.testLocaleCookie } : undefined; } }; }'
 					: path === "next/font/google"
 						? 'export const Geist = () => ({ variable: "sans" }); export const Geist_Mono = () => ({ variable: "mono" });'
-						: 'export function Providers({ children }) { return children; }' }));
+						: path === "@/lib/cloudflare"
+							? "export function getEnv() { return { ASSETS: { fetch: globalThis.readTestAsset } }; }"
+							: 'export function Providers({ children }) { return children; }' }));
 				builder.onLoad({ filter: /\.css$/ }, () => ({ contents: "", loader: "js" }));
 			},
 		}],
@@ -77,8 +91,8 @@ const pluralBases = new Set(Object.keys(en).filter((key) => key.endsWith(".other
 const isPluralKey = (key) => categoryOf(key) && pluralBases.has(baseOf(key));
 
 test("every registered catalog has the English keys and nonempty messages and label", async () => {
-	for (const [code, { load, label }] of Object.entries(i18n.locales)) {
-		const catalog = await load();
+	for (const [code, { label }] of Object.entries(i18n.locales)) {
+		const catalog = await i18n.loadMessages(code);
 		assert.ok(label.trim().length > 0, code);
 		const plain = (keys) => keys.filter((key) => !isPluralKey(key)).sort();
 		assert.deepEqual(plain(Object.keys(catalog)), plain(Object.keys(en)), `${code}: keys differ from English`);
@@ -136,6 +150,7 @@ test("root layout passes the same cookie locale to HTML and provider on first re
 
 test("a locale registered once reaches resolution, translation, cookie, selector and SSR", async () => {
 	assert.ok(existsSync(join(root, "src/lib/i18n/locales.ts")), "locales must have one shared registry");
+	globalThis.testCatalogs.xx = { ...en, "navigation.inbox": "Entrada", "navigation.inbox.one": "{count} entrada", "navigation.inbox.other": "{count} entradas", "language.label": "Idioma" };
 	const extraFile = join(outDir, "with-spanish.mjs");
 	await bundleI18n(extraFile, true);
 	const extended = await import(pathToFileURL(extraFile).href);

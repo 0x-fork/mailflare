@@ -29,7 +29,16 @@ export function SidebarFooter() {
           </kbd>
         </button>
       )}
-      <p className="px-1 text-[11px] text-neutral-400">
+      <PoweredBy />
+    </div>
+  );
+}
+
+/** The "Powered by Mailflare vX" credit, shared by the mail and Drive sidebars. */
+export function PoweredBy({ className = "px-1" }: { className?: string }) {
+	const { t } = useLanguage();
+	return (
+      <p className={`${className} text-[11px] text-neutral-400`}>
         {t("navigation.poweredBy")}{" "}
         <a
           href={`https://mailflare.co/?ref=${typeof window !== "undefined" ? location.hostname : ""}&v=${packageJson.version}`}
@@ -40,6 +49,5 @@ export function SidebarFooter() {
           Mailflare v{packageJson.version}
         </a>
       </p>
-    </div>
-  );
+	);
 }
