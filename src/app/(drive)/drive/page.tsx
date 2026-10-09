@@ -15,7 +15,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input";
 import { authFetch } from "@/lib/auth/client";
 import { canEditDrive, DRIVE_MAX_FILE_BYTES, formatDriveSize } from "@/lib/drive/utils";
-import type { DriveCrumb, DriveItemDto, DriveRole } from "@/lib/drive/types";
+import type { DriveItemDto } from "@/lib/drive/types";
 import { DRIVE_FOLDERS_EVENT, DRIVE_NEW_FOLDER_EVENT, DRIVE_REFRESH_EVENT, DRIVE_STORAGE_EVENT, DRIVE_UPLOAD_EVENT } from "../drive-events";
 import { DrivePreviewBody } from "../drive-preview";
 import { DriveShareDialog } from "../drive-share-dialog";
@@ -29,12 +29,15 @@ import { DriveTypeFilter } from "../drive-type-filter";
 import { isDriveCategory } from "@/lib/drive/category-names";
 import type { DriveCategory } from "@/lib/drive/category-names";
 import { uploadDriveFile } from "../drive-upload";
+import type { DriveUploadEntry } from "../drive-upload-types";
+import { DriveUploadPanel } from "../drive-upload-panel";
+import { clearDriveListings, readDriveListing, saveDriveListing } from "../drive-cache";
+import type { DriveListing } from "../drive-cache";
+import { Skeleton } from "@/components/ui/skeleton";
 import { canDropDrive, driveDropHandlers, endDriveDrag, isDriveDraggable, startDriveDrag } from "../drive-drag";
 
 const menuItemClass = "flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2 text-sm text-neutral-700 outline-none data-[highlighted]:bg-neutral-100";
 const dateFormat = new Intl.DateTimeFormat(undefined, { year: "numeric", month: "short", day: "numeric" });
-
-type ListResponse = { items: DriveItemDto[]; path: DriveCrumb[]; role: DriveRole; storageUsed: number; storageLimit: number | null };
 
 export default function DrivePage() {
 	const { t } = useLanguage();
@@ -45,11 +48,10 @@ export default function DrivePage() {
 	const query = params.get("q") ?? "";
 	const typesParam = params.get("types") ?? "";
 	const types = useMemo(() => typesParam.split(",").filter((entry): entry is DriveCategory => isDriveCategory(entry)), [typesParam]);
-	const [items, setItems] = useState<DriveItemDto[]>([]);
-	const [path, setPath] = useState<DriveCrumb[]>([]);
-	const [role, setRole] = useState<DriveRole>("owner");
-	const [loading, setLoading] = useState(true);
-	const [failed, setFailed] = useState(false);
+	const [listing, setListing] = useState<{ key: string; data: DriveListing } | null>(null);
+	const [failedKey, setFailedKey] = useState<string | null>(null);
+	const [uploads, setUploads] = useState<DriveUploadEntry[]>([]);
+	const uploadSeq = useRef(0);
 	const [sortKey, setSortKey] = useState<DriveSortKey>("name");
 	const columns = useDriveColumns();
 	const [ascending, setAscending] = useState(true);
@@ -67,8 +69,15 @@ export default function DrivePage() {
 	const [movingIds, setMovingIds] = useState<Set<string>>(new Set());
 	const [dropFolder, setDropFolder] = useState<string | null>(null);
 
-	const canWrite = view !== "trash" && (folder ? canEditDrive(role) : view === "my");
 	const requestKey = `${view}|${folder ?? ""}|${query}|${typesParam}`;
+	// A listing seen before renders straight from memory while it is refetched; only a new one shows the skeleton.
+	const current = listing?.key === requestKey ? listing.data : readDriveListing(requestKey);
+	const items = useMemo(() => current?.items ?? [], [current]);
+	const path = current?.path ?? [];
+	const role = current?.role ?? "owner";
+	const loading = !current;
+	const failed = failedKey === requestKey && !current;
+	const canWrite = view !== "trash" && (folder ? canEditDrive(role) : view === "my");
 	// The key of the listing the page currently wants, so a slow response for a folder we already left is dropped.
 	const requestRef = useRef(requestKey);
 	useEffect(() => { requestRef.current = requestKey; }, [requestKey]);
@@ -82,46 +91,55 @@ export default function DrivePage() {
 		try {
 			const response = await authFetch(`/api/drive/items?${search}`);
 			if (!response.ok) throw new Error();
-			const data = await response.json() as ListResponse;
+			const data = await response.json() as DriveListing;
+			saveDriveListing(key, data);
 			if (key !== requestRef.current) return;
-			setItems(data.items); setPath(data.path); setRole(data.role); setFailed(false);
+			setListing({ key, data }); setFailedKey(null);
 			window.dispatchEvent(new CustomEvent(DRIVE_STORAGE_EVENT, { detail: { used: data.storageUsed, limit: data.storageLimit } }));
 			window.dispatchEvent(new Event(DRIVE_FOLDERS_EVENT));
 		} catch {
-			if (key === requestRef.current) setFailed(true);
-		} finally {
-			if (key === requestRef.current) setLoading(false);
+			if (key === requestRef.current) setFailedKey(key);
 		}
 	}, [view, folder, query, typesParam, requestKey]);
+	// Reload after a change; other cached listings may be stale now, so they are dropped.
+	const refresh = useCallback(() => { clearDriveListings(); return load(); }, [load]);
 
-	useEffect(() => { setLoading(true); void load(); }, [load]);
+	useEffect(() => { void load(); }, [load]);
 	useEffect(() => { setSearch(query); }, [query]);
 	useEffect(() => {
-		const refresh = () => void load();
-		window.addEventListener(DRIVE_REFRESH_EVENT, refresh);
-		return () => window.removeEventListener(DRIVE_REFRESH_EVENT, refresh);
-	}, [load]);
+		const onRefresh = () => void refresh();
+		window.addEventListener(DRIVE_REFRESH_EVENT, onRefresh);
+		return () => window.removeEventListener(DRIVE_REFRESH_EVENT, onRefresh);
+	}, [refresh]);
 	useEffect(() => { setSelectedIds(new Set()); }, [requestKey]);
 	// Keep only selected items that are still listed (after a move, trash, upload or reload).
 	useEffect(() => { setSelectedIds((current) => { const present = new Set(items.map((item) => item.id)); const next = new Set([...current].filter((id) => present.has(id))); return next.size === current.size ? current : next; }); }, [items]);
 	useEffect(() => { setHeaderTarget(document.getElementById("drive-header-slot")); }, []);
 
+	const patchUpload = useCallback((id: string, patch: Partial<DriveUploadEntry>) => setUploads((list) => list.map((entry) => (entry.id === id ? { ...entry, ...patch } : entry))), []);
+
 	const upload = useCallback(async (files: File[]) => {
 		if (!canWrite || !files.length) return;
-		let done = 0;
+		const accepted: { id: string; file: File }[] = [];
 		for (const file of files) {
-			if (file.size > DRIVE_MAX_FILE_BYTES) { toast.error(t("drive.tooLarge", { name: file.name, size: formatDriveSize(DRIVE_MAX_FILE_BYTES) })); continue; }
-			const toastId = toast.loading(t("drive.uploading", { name: file.name }));
+			if (file.size > DRIVE_MAX_FILE_BYTES) toast.error(t("drive.tooLarge", { name: file.name, size: formatDriveSize(DRIVE_MAX_FILE_BYTES) }));
+			else accepted.push({ id: `upload-${(uploadSeq.current += 1)}`, file });
+		}
+		if (!accepted.length) return;
+		setUploads((list) => [...list, ...accepted.map(({ id, file }) => ({ id, name: file.name, percent: 0, resumed: false, status: "queued" as const }))]);
+		let done = 0;
+		for (const { id, file } of accepted) {
+			patchUpload(id, { status: "uploading" });
 			try {
-				await uploadDriveFile(file, folder, (percent, resumed) => toast.loading(`${resumed ? t("drive.resuming", { name: file.name }) : t("drive.uploading", { name: file.name })} ${percent}%`, { id: toastId }));
+				await uploadDriveFile(file, folder, (percent, resumed) => patchUpload(id, { percent, resumed }));
 				done += 1;
-				toast.dismiss(toastId);
+				patchUpload(id, { status: "done", percent: 100 });
 			} catch (error) {
-				toast.error(error instanceof Error && error.message ? error.message : t("drive.uploadFailed", { name: file.name }), { id: toastId });
+				patchUpload(id, { status: "failed", error: error instanceof Error && error.message ? error.message : t("drive.uploadFailed", { name: file.name }) });
 			}
 		}
-		if (done) { toast.success(t("drive.uploaded", { count: done })); await load(); }
-	}, [canWrite, folder, load, t]);
+		if (done) await refresh();
+	}, [canWrite, folder, refresh, patchUpload, t]);
 
 	const canWriteRef = useRef(canWrite);
 	useEffect(() => { canWriteRef.current = canWrite; }, [canWrite]);
@@ -141,7 +159,7 @@ export default function DrivePage() {
 				throw new Error(data.error);
 			}
 			if (successMessage) toast.success(successMessage);
-			await load();
+			await refresh();
 			return true;
 		} catch (error) {
 			toast.error(error instanceof Error && error.message ? error.message : t("drive.actionFailed"));
@@ -237,7 +255,7 @@ export default function DrivePage() {
 				<div className="flex min-h-[4.25rem] shrink-0 items-center justify-between gap-3 border-b border-neutral-200 px-5 py-3">
 				<div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-1">
 					<nav aria-label={title} className="flex min-w-0 flex-wrap items-center gap-1 text-xl text-neutral-800 max-md:text-lg">
-					{path.length === 0 ? <h1 className="font-normal">{title}</h1> : (
+					{loading && folder ? <Skeleton className="h-7 w-48" /> : path.length === 0 ? <h1 className="font-normal">{title}</h1> : (
 						<>
 							<button type="button" onClick={() => router.push(rootHref)} className="rounded-full px-2 py-1 hover:bg-neutral-100">{view === "shared" || role !== "owner" ? t("drive.sharedWithMe") : t("drive.myDrive")}</button>
 							{path.map((crumb, index) => (
@@ -257,7 +275,7 @@ export default function DrivePage() {
 					)}
 				</div>
 					<div className="flex items-center gap-2">
-						{selectedItems.length > 0 && <DriveBulkActions selected={selectedItems} trashView={view === "trash"} onDone={() => { setSelectedIds(new Set()); void load(); }} />}
+						{selectedItems.length > 0 && <DriveBulkActions selected={selectedItems} trashView={view === "trash"} onDone={() => { setSelectedIds(new Set()); void refresh(); }} />}
 						<DriveTypeFilter value={types} onChange={setTypes} />
 					</div>
 				</div>
@@ -272,7 +290,17 @@ export default function DrivePage() {
 				</div>
 				<div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 space-y-px pt-px">
 					{failed ? <p className="p-8 text-center text-sm text-neutral-500">{t("drive.loadFailed")}</p>
-						: !loading && sorted.length === 0 ? <p className="p-12 text-center text-sm text-neutral-500">{emptyText}</p>
+						: loading ? Array.from({ length: 8 }, (_, index) => (
+							<div key={index} aria-hidden="true" style={gridStyle} className="grid grid-cols-[2rem_minmax(0,1fr)_2.5rem] items-center gap-x-4 px-3 py-3.5 md:grid-cols-[var(--drive-columns)]">
+								<Skeleton className="ml-1 h-4 w-4" />
+								<span className="flex items-center gap-3"><Skeleton className="h-4 w-4 shrink-0" /><Skeleton className="h-4" style={{ width: `${45 + ((index * 17) % 40)}%` }} /></span>
+								<Skeleton className="hidden h-6 w-6 rounded-full md:block" />
+								<Skeleton className="hidden h-4 w-24 md:block" />
+								<Skeleton className="hidden h-4 w-14 md:block" />
+								<span />
+							</div>
+						))
+						: sorted.length === 0 ? <p className="p-12 text-center text-sm text-neutral-500">{emptyText}</p>
 						: sorted.map((item) => {
 							const { Icon, className } = driveIconFor(item);
 							// Only the owner's own folders take drops, matching what the move endpoint allows.
@@ -345,7 +373,9 @@ export default function DrivePage() {
 				</DialogContent>
 			</Dialog>
 
-			<DriveShareDialog item={sharing} onClose={() => setSharing(null)} onChanged={() => void load()} />
+			<DriveUploadPanel uploads={uploads} onClose={() => setUploads((list) => list.filter((entry) => entry.status === "queued" || entry.status === "uploading"))} />
+
+			<DriveShareDialog item={sharing} onClose={() => setSharing(null)} onChanged={() => void refresh()} />
 		</div>
 	);
 }

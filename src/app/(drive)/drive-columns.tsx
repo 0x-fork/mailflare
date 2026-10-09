@@ -8,7 +8,7 @@ import { useLanguage } from "@/components/language-provider";
 export type DriveColumn = "owner" | "updatedAt" | "size";
 
 const STORAGE_KEY = "mailflare-drive-columns";
-const DEFAULT_WIDTHS: Record<DriveColumn, number> = { owner: 160, updatedAt: 144, size: 96 };
+const DEFAULT_WIDTHS: Record<DriveColumn, number> = { owner: 100, updatedAt: 144, size: 96 };
 const MIN_WIDTH = 72;
 const MAX_WIDTH = 480;
 const clamp = (value: number) => Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, Math.round(value)));
