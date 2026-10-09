@@ -41,7 +41,7 @@ Want to support the mailflare? <a target="_blank" href="https://store.paymug.co/
 
 Mailflare runs in your Cloudflare account. By default, Cloudflare Email Routing delivers incoming mail to the app, and Cloudflare's email service sends outgoing mail. Each domain can also receive or send through Resend or Amazon SES. Cloudflare still manages the DNS.
 
-Your mail stays in your own D1 database, and attachments stay in your own R2 bucket, whichever provider you use. See [Sending and receiving providers](docs/providers.md).
+Your mail stays in your own D1 database, and attachments stay in your own R2, Backblaze B2 or AWS S3 bucket, whichever provider you use. See [Sending and receiving providers](docs/providers.md).
 
 ## Cost
 
@@ -104,7 +104,7 @@ See the [deployment guide](docs/deployment.md) for permissions, manual deploymen
 
 ### Self-host with Docker
 
-Mailflare also runs as one container on any server. It uses SQLite and local files instead of D1 and R2.
+Mailflare also runs as one container on any server. It uses SQLite and local files instead of D1 and R2 (Backblaze B2 can replace the local files).
 
 - **Inbound mail**: a built-in SMTP listener, or a small Cloudflare relay Worker if you want to keep MX on Cloudflare.
 - **Outbound mail**: any SMTP relay, Cloudflare Email Sending, Resend, or Amazon SES.

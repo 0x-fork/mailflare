@@ -1,3 +1,4 @@
+import { withStorage } from "./src/lib/storage";
 import vinextHandler from "vinext/server/fetch-handler";
 import {
 	processInboundMessage,
@@ -24,7 +25,8 @@ import { runDriveTrashRetention } from "./src/lib/drive/retention";
 export { RealtimeHub } from "./src/lib/realtime/hub";
 
 export default {
-	async fetch(request: Request, env: CloudflareEnv, ctx: ExecutionContext) {
+	async fetch(request: Request, rawEnv: CloudflareEnv, ctx: ExecutionContext) {
+		const env = withStorage(rawEnv);
 		const url = new URL(request.url);
 		if (url.pathname === "/api/realtime") {
 			if (request.headers.get("Upgrade")?.toLowerCase() !== "websocket") {
@@ -48,7 +50,8 @@ export default {
 		return vinextHandler.fetch(request, env, ctx);
 	},
 
-	async email(message: ForwardableEmailMessage, env: CloudflareEnv, ctx: ExecutionContext) {
+	async email(message: ForwardableEmailMessage, rawEnv: CloudflareEnv, ctx: ExecutionContext) {
+		const env = withStorage(rawEnv);
 		try {
 			if (message.rawSize > 25 * 1024 * 1024) {
 				message.setReject("Message rejected: raw email exceeds the 25 MiB receiving limit. Send a download link instead.");
@@ -96,7 +99,8 @@ export default {
 		}
 	},
 
-	async queue(batch: MessageBatch, env: CloudflareEnv): Promise<void> {
+	async queue(batch: MessageBatch, rawEnv: CloudflareEnv): Promise<void> {
+		const env = withStorage(rawEnv);
 		for (const msg of batch.messages) {
 			try {
 				if (isInboundQueueMessage(msg.body)) {
@@ -123,7 +127,8 @@ export default {
 		}
 	},
 
-	async scheduled(controller: ScheduledController, env: CloudflareEnv, ctx: ExecutionContext) {
+	async scheduled(controller: ScheduledController, rawEnv: CloudflareEnv, ctx: ExecutionContext) {
+		const env = withStorage(rawEnv);
 		if (controller.cron === "0 2 * * *") ctx.waitUntil(runScheduledDatabaseBackup(env, new Date(controller.scheduledTime)));
 		ctx.waitUntil(runAgentMaintenance(env));
 		ctx.waitUntil(runTrashRetention(env, new Date(controller.scheduledTime)));
