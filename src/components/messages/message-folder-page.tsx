@@ -11,6 +11,7 @@ import { Tooltip } from "@/components/ui/tooltip";
 import { useMailSearch } from "@/components/mail-search/mail-search-context";
 import { useSelectedMailbox } from "@/components/mailbox-provider";
 import { usePageLoading } from "@/components/page-loading";
+import { formatScheduledSendTime } from "./scheduled-send-utils";
 import { useIsMobile } from "@/components/sidebar-mobile-utils";
 import { useMessageCounts } from "@/hooks/use-message-counts";
 import { useMessages } from "@/hooks/use-messages";
@@ -149,7 +150,7 @@ function MessageListRow({
 							)}
 						</span>
 						<span className={clsx(unread ?"font-medium":"text-neutral-400","shrink-0 text-[11px]")}>
-							{formatMessageListTimestamp(message.createdAt)}
+							{message.scheduledAt ? formatScheduledSendTime(message.scheduledAt, t) : formatMessageListTimestamp(message.createdAt)}
 						</span>
 					</span>
 					<span
@@ -186,7 +187,7 @@ function MessageListRow({
 	}
 
 	const className =
-		`group relative grid min-h-12 w-full grid-cols-[24px_32px_minmax(160px,260px)_1fr_auto] items-center gap-3 px-6 text-left text-sm hover:z-10 hover:bg-[#f2f6fc] hover:shadow-sm ${active || selected ? "bg-blue-50" : ""
+		`group relative grid min-h-12 w-full grid-cols-[24px_32px_minmax(160px,80px)_1fr_auto] items-center gap-3 px-6 text-left text-sm hover:z-10 hover:bg-[#f2f6fc] hover:shadow-sm ${active || selected ? "bg-blue-50" : ""
 		} ${draggable ? "cursor-grab active:cursor-grabbing" : ""}`;
 	const content = (
 		<>
@@ -228,7 +229,7 @@ function MessageListRow({
 				className={`min-w-[96px] whitespace-nowrap text-right text-xs group-hover:opacity-0 ${unread ? "font-semibold text-neutral-800" : "text-neutral-500"
 					}`}
 			>
-				{formatMessageListTimestamp(message.createdAt)}
+				{message.scheduledAt ? formatScheduledSendTime(message.scheduledAt, t) : formatMessageListTimestamp(message.createdAt)}
 			</time>
 		</>
 	);

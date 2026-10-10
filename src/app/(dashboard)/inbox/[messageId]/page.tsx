@@ -18,6 +18,8 @@ import { PreviousMessage } from "@/components/previous-message";
 import { ConversationThread } from "@/components/messages/conversation-thread";
 import { MessageDetailNavigation } from "@/components/messages/message-detail-navigation";
 import { MessageReadingHeaderButton } from "@/components/messages/message-reading-header-button";
+import { ScheduledSendBanner } from "@/components/messages/scheduled-send-banner";
+import { formatScheduledSendTime } from "@/components/messages/scheduled-send-utils";
 import { QuotedEmailToggle } from "@/components/messages/quoted-email-toggle";
 import { ThreadMessageActions } from "@/components/messages/thread-message-actions";
 import { useMessageThread } from "@/components/messages/use-message-thread";
@@ -108,7 +110,7 @@ export default function MessageDetailPage() {
     );
   }
 
-  const { message, body, attachments = [] } = data;
+  const { message, body, attachments = [], scheduledAt } = data;
   const currentThreadMessage = {
     ...message,
     textBody: body?.textBody ?? null,
@@ -259,7 +261,9 @@ export default function MessageDetailPage() {
             </div>
             <div className="flex shrink-0 items-center gap-2">
               <p className="text-xs">
-                {formatUserDate(message.createdAt, { month: "short", day: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+                {scheduledAt
+                  ? formatScheduledSendTime(scheduledAt, t)
+                  : formatUserDate(message.createdAt, { month: "short", day: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}
               </p>
               <ThreadMessageActions
                 message={currentThreadMessage}
@@ -270,6 +274,7 @@ export default function MessageDetailPage() {
               />
             </div>
           </div>
+          {scheduledAt && <div className="pl-10"><ScheduledSendBanner messageId={message.id} scheduledAt={scheduledAt} /></div>}
           <div className="prose max-w-none pl-16 text-neutral-900">
             {htmlBody ? (
               <EmailHtmlRenderer key={message.id} className="mx-auto" html={htmlBody} />
