@@ -117,7 +117,7 @@ function MessageListRow({
 		navigation.onNavigate(event, !read);
 	}
 
-	if (compact && config.folder !== "drafts") {
+	if (compact) {
 		const compactRow = (
 			<div
 				className={`group grid grid-cols-[20px_minmax(0,1fr)] gap-3 border-l-2 px-4 py-3 transition-colors ${active
@@ -139,7 +139,7 @@ function MessageListRow({
 					className="mt-1 h-4 w-4 rounded border-neutral-300"
 					aria-label={t("list.selectFrom", { sender: party })}
 				/>
-				<Link href={href} onClick={onMessageNavigate} className="min-w-0">
+				<Link href={href} onClick={config.folder === "drafts" ? undefined : onMessageNavigate} className="min-w-0">
 					<span className="flex items-baseline justify-between gap-3">
 						<span className={clsx(unread && "font-semibold",getMessagePartyClassName(rowMessage, config.folder))}>
 							{party}
