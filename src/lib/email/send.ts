@@ -128,6 +128,7 @@ export async function sendEmail(
 		textBody: input.text ?? null,
 		htmlBody: input.html ?? null,
 		status: "queued",
+		read: true,
 		threadId: input.threadId ?? null,
 		inReplyTo,
 		references: references.length ? references.join(" ") : null,

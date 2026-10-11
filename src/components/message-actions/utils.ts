@@ -130,7 +130,7 @@ export function getMessageActionRedirect(
 export function buildReplySubject(subject: string | null | undefined) {
   const trimmed = (subject ?? "").trim();
   if (!trimmed) return "Re:";
-  return /^re:/i.test(trimmed) ? trimmed : `Re: ${trimmed}`;
+  return /^re\s*(\[\d+\])?\s*:/i.test(trimmed) ? trimmed : `Re: ${trimmed}`;
 }
 
 export function buildReplyQuote(

@@ -156,7 +156,7 @@ export async function runEmailTool(context: AgentToolContext, name: EmailToolNam
 		const source = await ownMessage(context, input.emailId as string);
 		if (source.direction !== "inbound" || source.status === "spam" || source.status === "trash") throw new Error("Cannot reply to this message");
 		const recipients = await getReplyRecipients(context, source, input.replyAll as boolean);
-		const subject = /^Re:/i.test(source.subject ?? "") ? source.subject! : `Re: ${source.subject ?? ""}`;
+		const subject = /^re\s*(\[\d+\])?\s*:/i.test(source.subject ?? "") ? source.subject! : `Re: ${source.subject ?? ""}`;
 		return createDraft(context, { ...recipients, subject, body: input.body as string, source });
 	}
 	if (name === "edit_draft") return editAgentDraft(context, input as unknown as AgentDraftEditInput);

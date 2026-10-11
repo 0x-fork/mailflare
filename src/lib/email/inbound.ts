@@ -1,6 +1,6 @@
 import { and, eq, isNotNull } from "drizzle-orm";
 import { getDb } from "@/db";
-import { messages, outboundJobs, users } from "@/db/schema";
+import { domains, mailboxAliases, mailboxes, messages, outboundJobs, users } from "@/db/schema";
 import { newId } from "@/lib/ids";
 import { buildSnippet, parseRawMime } from "@/lib/email/parse";
 import { resolveInboundAddress, resolveInboxRuleDestination } from "@/lib/email/routing";
@@ -31,6 +31,25 @@ export type InboundQueueMessage = {
 	rawR2Key: string;
 	headers?: Record<string, string>;
 };
+
+/** True when the address is a mailbox or alias owned by the user, so their own mail never counts as unread. */
+async function isOwnAddress(db: ReturnType<typeof getDb>, userId: string, address: string) {
+	const at = address.lastIndexOf("@");
+	if (at < 1) return false;
+	const localPart = address.slice(0, at).toLowerCase();
+	const hostname = address.slice(at + 1).toLowerCase();
+	const [mailbox] = await db.select({ id: mailboxes.id }).from(mailboxes)
+		.innerJoin(domains, eq(mailboxes.domainId, domains.id))
+		.where(and(eq(mailboxes.userId, userId), eq(mailboxes.localPart, localPart), eq(domains.hostname, hostname)))
+		.limit(1);
+	if (mailbox) return true;
+	const [alias] = await db.select({ id: mailboxAliases.id }).from(mailboxAliases)
+		.innerJoin(mailboxes, eq(mailboxAliases.mailboxId, mailboxes.id))
+		.innerJoin(domains, eq(mailboxAliases.domainId, domains.id))
+		.where(and(eq(mailboxes.userId, userId), eq(mailboxAliases.localPart, localPart), eq(domains.hostname, hostname)))
+		.limit(1);
+	return Boolean(alias);
+}
 
 export async function processInboundMessage(
 	env: CloudflareEnv,
@@ -133,6 +152,7 @@ export async function processInboundMessage(
 		address: fromAddr,
 		source: "inbound",
 	});
+	const sentByOwner = await isOwnAddress(db, decision.mailbox.userId, getEmailAddress(fromAddr) || fromAddr).catch(() => false);
 	let threadId: string;
 	try {
 		threadId = await resolveThreadId(db, {
@@ -168,6 +188,7 @@ export async function processInboundMessage(
 			htmlBody: parsed.html,
 			rawR2Key: payload.rawR2Key,
 			status,
+			read: sentByOwner,
 			threadId,
 			inReplyTo: parsed.inReplyTo,
 			references: parsed.references.length ? parsed.references.join(" ") : null,
