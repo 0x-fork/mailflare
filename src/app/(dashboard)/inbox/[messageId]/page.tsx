@@ -191,7 +191,7 @@ export default function MessageDetailPage() {
     <div ref={scrollRef} onScroll={handleScroll} className="h-full overflow-y-auto overscroll-contain scrollbar-gutter-stable flex-1 min-h-0">
       {!message.read && <MarkAsRead messageId={message.id} />}
 
-      <h1 className={clsx(!isAnyPanelVisible ? "sm:pl-16" : "sm:pl-10", "pl-3 pr-3 pb-2 pt-2 text-2xl text-neutral-900 sm:pr-6")} title={message.subject ?? t("list.noSubject")}>
+      <h1 className={clsx(!isAnyPanelVisible ? "sm:pl-16" : "sm:pl-10", "px-4 pb-2 pt-2 text-2xl text-neutral-900 sm:pr-6")} title={message.subject ?? t("list.noSubject")}>
         {message.subject ?? t("list.noSubject")}
       </h1>
       {/* <div className="px-6">
@@ -217,9 +217,9 @@ export default function MessageDetailPage() {
         expandedAll={threadExpanded}
         onExpandedAllChange={setThreadExpanded}
       />
-      <article className={clsx("px-3 py-4 sm:px-6", !isAnyPanelVisible && "sm:pl-12")}>
+      <article className={clsx("py-4 sm:px-6", !isAnyPanelVisible && "sm:pl-12")}>
         <div className="w-full">
-          <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1 pb-5 sm:pl-4">
+          <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1 px-4 pb-5 sm:px-0 sm:pl-4">
             <div className="flex min-w-0 items-start gap-3">
               <ContactAvatar
                 mailboxId={message.mailboxId}
@@ -290,8 +290,8 @@ export default function MessageDetailPage() {
               </dl>
             )}
           </div>
-          {scheduledAt && <div className="sm:pl-10"><ScheduledSendBanner messageId={message.id} scheduledAt={scheduledAt} /></div>}
-          <div className="prose max-w-none text-neutral-900 sm:pl-16">
+          {scheduledAt && <div className="px-4 sm:px-0 sm:pl-10"><ScheduledSendBanner messageId={message.id} scheduledAt={scheduledAt} /></div>}
+          <div className="prose max-w-none px-4 text-neutral-900 sm:px-0 sm:pl-16">
             {htmlBody ? (
               <EmailHtmlRenderer key={message.id} className="mx-auto" html={htmlBody} />
             ) : (
@@ -308,7 +308,7 @@ export default function MessageDetailPage() {
             ))}
           </div>
           {cloudAttachmentResult.attachments.length > 0 && (
-            <section className="mt-8 border-t border-neutral-100 py-6 sm:pl-16">
+            <section className="mt-8 border-t border-neutral-100 px-4 py-6 sm:px-0 sm:pl-16">
               <h2 className="mb-3 text-sm font-semibold text-neutral-900">
                 {t("message.cloudFiles", { count: cloudAttachmentResult.attachments.length })}
               </h2>
@@ -337,7 +337,7 @@ export default function MessageDetailPage() {
             </section>
           )}
           {attachments.length > 0 && (
-            <section className="mt-8 border-t border-neutral-100 py-6 sm:pl-16">
+            <section className="mt-8 border-t border-neutral-100 px-4 py-6 sm:px-0 sm:pl-16">
               <h2 className="mb-3 text-sm font-semibold text-neutral-900">
                 {t("message.attachments", { count: attachments.length })}
               </h2>
