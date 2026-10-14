@@ -247,6 +247,7 @@
 	"schedule.in3Hours": "In 3 hours",
 	"schedule.tomorrowMorning": "Tomorrow morning",
 	"schedule.mondayMorning": "Monday morning",
+	"schedule.pastTime": "Pick a time that has not passed yet.",
 	"template.menu": "Template",
 	"template.none": "No templates yet",
 	"template.untitled": "Untitled",
