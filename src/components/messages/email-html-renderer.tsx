@@ -76,7 +76,7 @@ export function EmailHtmlRenderer({ html, className, preserveLeadingQuote = fals
 					if (!allowRemote) onAllowRemote?.();
 					setChoice({ source: html, allow: !allowRemote });
 				}}>
-				{allowRemote ? t("message.blockRemote") : t("message.allowRemote")}
+				{allowRemote ? null : t("message.allowRemote")}
 			</button>
 		</div>}
 		<div className="max-w-full overflow-x-auto" ref={host} />
