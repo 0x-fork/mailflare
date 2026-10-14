@@ -119,6 +119,7 @@
 	"source.copy": "Copy to clipboard",
 	"actions.error.update": "Could not update message",
 	"actions.error.delete": "Could not delete message",
+	"actions.error.deleteSkipped": "Some messages could not be deleted because they are no longer in Trash or Spam.",
 	"actions.error.trashRule": "Could not create trash rule",
 	"actions.moveToTrash": "Move to trash",
 	"actions.moveToTrashHint": "Move to trash (#)",

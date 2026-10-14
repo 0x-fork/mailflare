@@ -116,6 +116,7 @@
 	"source.copy": "Panoya kopyala",
 	"actions.error.update": "İleti güncellenemedi",
 	"actions.error.delete": "İleti silinemedi",
+	"actions.error.deleteSkipped": "Bazı iletiler artık Çöp Kutusu veya Spam içinde olmadığı için silinemedi.",
 	"actions.error.trashRule": "Çöp kutusu kuralı oluşturulamadı",
 	"actions.moveToTrash": "Çöp kutusuna taşı",
 	"actions.moveToTrashHint": "Çöp kutusuna taşı (#)",
