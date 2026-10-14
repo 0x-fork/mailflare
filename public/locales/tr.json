@@ -40,6 +40,7 @@
 	"common.reportSpam": "Spam olarak bildir",
 	"common.restore": "Geri yükle",
 	"common.delete": "Sil",
+	"common.opensInNewTab": "yeni sekmede açılır",
 	"common.deleteForever": "Kalıcı olarak sil",
 	"common.markRead": "Okundu olarak işaretle",
 	"common.markUnread": "Okunmadı olarak işaretle",

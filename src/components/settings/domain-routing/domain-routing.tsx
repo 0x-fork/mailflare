@@ -259,7 +259,7 @@ export function DomainRouting({ domain }: DomainRoutingProps = {}) {
 								<div className="flex items-center gap-2">
 									<Label htmlFor="rule-value">{t("routing.matchValue")}</Label>
 									<Tooltip label={t("routing.matchAllHint")}>
-										<span className="text-neutral-500"><Info className="h-4 w-4" /></span>
+										<button type="button" aria-label={t("routing.matchAllHint")} className="text-neutral-500"><Info className="h-4 w-4" /></button>
 									</Tooltip>
 								</div>
 								<Input
@@ -274,7 +274,7 @@ export function DomainRouting({ domain }: DomainRoutingProps = {}) {
 								<div className="flex items-center gap-2">
 									<Label htmlFor="rule-priority">{t("routing.priority")}</Label>
 									<Tooltip label={t("routing.priorityHint")}>
-										<span className="text-neutral-500"><Info className="h-4 w-4" /></span>
+										<button type="button" aria-label={t("routing.priorityHint")} className="text-neutral-500"><Info className="h-4 w-4" /></button>
 									</Tooltip>
 								</div>
 								<Input
@@ -329,7 +329,7 @@ export function DomainRouting({ domain }: DomainRoutingProps = {}) {
 									<div className="flex items-center gap-2">
 										<p className="text-sm font-medium">{t("routing.keepCopy")}</p>
 										<Tooltip label={t("routing.keepCopyHint")}>
-											<span className="text-neutral-500"><Info className="h-4 w-4" /></span>
+											<button type="button" aria-label={t("routing.keepCopyHint")} className="text-neutral-500"><Info className="h-4 w-4" /></button>
 										</Tooltip>
 									</div>
 								</div>
@@ -398,7 +398,7 @@ function RuleSection({
 				<div className="flex items-center gap-2">
 					<CardTitle className="text-xs uppercase">{title}</CardTitle>
 					<Tooltip label={description}>
-						<span className="text-neutral-500"><Info className="h-4 w-4" /></span>
+						<button type="button" aria-label={description} className="text-neutral-500"><Info className="h-4 w-4" /></button>
 					</Tooltip>
 				</div>
 			</CardHeader>

@@ -41,6 +41,7 @@
 	"common.reportSpam": "Report spam",
 	"common.restore": "Restore",
 	"common.delete": "Delete",
+	"common.opensInNewTab": "opens in a new tab",
 	"common.deleteForever": "Delete forever",
 	"common.markRead": "Mark as read",
 	"common.markUnread": "Mark as unread",
