@@ -676,6 +676,7 @@
 	"routing.rejectReason": "Reddetme nedeni",
 	"routing.rejectPlaceholder": "İleti yönlendirme kuralı tarafından reddedildi",
 	"routing.noRules": "Henüz kural yok.",
+	"routing.enableRule": "Kuralı etkinleştir",
 	"routing.disabled": "Devre dışı",
 	"routing.stats": "Öncelik {priority} · {count}× eşleşti · son: {last}",
 	"export.failed": "Dışa aktarma başarısız oldu",
