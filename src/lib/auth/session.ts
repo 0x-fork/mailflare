@@ -29,6 +29,7 @@ export async function createSession(env: CloudflareEnv, userId: string): Promise
 		tokenHash,
 		expiresAt,
 	});
+	await db.update(users).set({ lastSignInAt: new Date() }).where(eq(users.id, userId));
 
 	return token;
 }
