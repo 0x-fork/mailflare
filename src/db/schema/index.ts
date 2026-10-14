@@ -241,6 +241,8 @@ export const messages = sqliteTable(
 		toAddr: text("to_addr").notNull(),
 		ccAddr: text("cc_addr"),
 		bccAddr: text("bcc_addr"),
+		/** Full Reply-To header, comma-joined. Replies go here instead of `fromAddr` when set. */
+		replyTo: text("reply_to"),
 		subject: text("subject"),
 		snippet: text("snippet"),
 		textBody: text("text_body"),

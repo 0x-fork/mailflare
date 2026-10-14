@@ -105,6 +105,7 @@ export function MessageActions({
 		fromAddr: senderAddress,
 		toAddr: "",
 		ccAddr: null,
+		replyTo: null,
 		providerMessageId: null,
 		references: null,
 		threadId: null,
