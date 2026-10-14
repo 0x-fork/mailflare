@@ -130,7 +130,7 @@ export default function CalendarPage() {
     void authFetch(`/api/calendar/events?start=${start.toISOString()}&end=${end.toISOString()}`)
       .then((response) => {
         if (!response.ok) throw new Error(t("calendar.loadFailed"));
-        return response.json();
+        return response.json() as Promise<{ events?: Parameters<typeof expandCalendarEvents>[0] }>;
       })
       .then((data) => { if (active) setEvents(expandCalendarEvents(data.events ?? [], start, end)); })
       .catch(() => { if (active) toast.error(t("calendar.loadFailed")); })
@@ -202,7 +202,7 @@ export default function CalendarPage() {
         setEventsVersion((version) => version + 1);
         setClosingEventEditor(true);
       } else {
-        const result = await response.json();
+        const result = (await response.json()) as { error?: string };
         toast.error(result.error ?? t("calendar.saveFailed"));
       }
     } catch {
@@ -223,7 +223,7 @@ export default function CalendarPage() {
         setEventsVersion((version) => version + 1);
         setClosingEventEditor(true);
       } else {
-        const result = await response.json();
+        const result = (await response.json()) as { error?: string };
         toast.error(result.error ?? t("calendar.deleteFailed"));
       }
     } catch {
