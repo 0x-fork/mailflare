@@ -1,7 +1,7 @@
 import { and, eq, lt, or, isNull } from "drizzle-orm";
 import { getDb } from "@/db";
 import { apiKeys, mcpKeyMailboxes, users } from "@/db/schema";
-import { parseScopes, verifyApiKey } from "@/lib/api-keys";
+import { apiKeyLookupPrefix, parseScopes, verifyApiKey } from "@/lib/api-keys";
 import type { ApiAuthResult } from "@/lib/api/key-auth-types";
 import { ADMIN_API_KEY_SCOPES } from "@/lib/api/scopes";
 
@@ -16,7 +16,7 @@ const ADMIN_SCOPES = new Set<string>(ADMIN_API_KEY_SCOPES);
 export async function authenticateApiKeyValue(env: CloudflareEnv, key: string): Promise<ApiAuthResult | null> {
 	const trimmed = key.trim();
 	if (!trimmed) return null;
-	const prefix = trimmed.slice(0, 12);
+	const prefix = apiKeyLookupPrefix(trimmed);
 	const db = getDb(env);
 	const candidates = await db.select().from(apiKeys).where(eq(apiKeys.prefix, prefix));
 
