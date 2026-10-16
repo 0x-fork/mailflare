@@ -85,6 +85,13 @@ export function EmailClientsSettings() {
 					<Field label={t("emailClients.server")} value={server} onCopy={copy} copied={copied} />
 					<Field label={t("emailClients.username")} value={username || t("emailClients.anyValue")} onCopy={copy} copied={copied} />
 					<Field label={t("emailClients.passwordApiKey")} value={key} onCopy={copy} copied={copied} mono />
+					{qr && (
+						<div className="flex flex-col items-center gap-2 rounded-xl bg-white p-4">
+							{/* eslint-disable-next-line @next/next/no-img-element */}
+							<img src={qr} alt={t("emailClients.qrAlt")} width={240} height={240} />
+							<p className="text-center text-xs text-neutral-500">{t("emailClients.qrHint")}</p>
+						</div>
+					)}
 					<p className="text-xs text-neutral-500">
 						{t("emailClients.shownOnce", { link: "\u0001", url: "\u0002" }).split(/(\u0001|\u0002)/).map((part, index) => part === "\u0001" ? <Link key={index} href="/settings/api-keys" className="text-blue-700 underline">{t("settings.nav.apiKeys")}</Link> : part === "\u0002" ? <code key={index}>{server}/.well-known/jmap</code> : part)}
 					</p>
