@@ -13,6 +13,7 @@ const registrationSchema = z.object({
 	topic: z.string().min(3).max(200),
 	publicKey: z.string().max(200).nullable().default(null),
 	previews: z.boolean().default(true),
+	accountRef: z.string().min(1).max(100).optional(),
 });
 
 async function authenticate(env: CloudflareEnv, request: Request) {
@@ -35,7 +36,8 @@ export async function PUT(request: Request) {
 	if (parsed.data.publicKey && !isValidDevicePublicKey(parsed.data.publicKey)) {
 		return NextResponse.json({ error: "publicKey must be a raw uncompressed P-256 point" }, { status: 400 });
 	}
-	await registerPushDevice(env, auth.userId, auth.keyId, { ...parsed.data, token: parsed.data.token.toLowerCase() });
+	const { accountRef, ...registration } = parsed.data;
+	await registerPushDevice(env, auth.userId, auth.keyId, { ...registration, token: registration.token.toLowerCase(), clientRef: accountRef ?? null });
 	return NextResponse.json({ ok: true });
 }
 

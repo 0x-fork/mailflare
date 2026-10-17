@@ -42,17 +42,19 @@ export type PushRegistration = {
 	topic: string;
 	publicKey: string | null;
 	previews: boolean;
+	/** The app's id for the account, echoed back in pushes. */
+	clientRef?: string | null;
 };
 
-/** Registers (or moves) a device token to the key that authenticated. */
+/** Registers a device token for the user (and key) that authenticated; other accounts on the same device keep theirs. */
 export async function registerPushDevice(env: CloudflareEnv, userId: string, apiKeyId: string, registration: PushRegistration): Promise<void> {
 	const now = new Date();
 	await getDb(env)
 		.insert(pushDevices)
 		.values({ id: newId("pdev"), userId, apiKeyId, ...registration, createdAt: now, updatedAt: now })
 		.onConflictDoUpdate({
-			target: [pushDevices.platform, pushDevices.token],
-			set: { userId, apiKeyId, environment: registration.environment, topic: registration.topic, publicKey: registration.publicKey, previews: registration.previews, updatedAt: now },
+			target: [pushDevices.platform, pushDevices.token, pushDevices.userId],
+			set: { apiKeyId, clientRef: registration.clientRef ?? null, environment: registration.environment, topic: registration.topic, publicKey: registration.publicKey, previews: registration.previews, updatedAt: now },
 		});
 }
 
@@ -88,7 +90,7 @@ export async function sendNativePush(env: CloudflareEnv, userIds: string[], mess
 	await Promise.allSettled(
 		devices.map(async (device) => {
 			const host = device.environment === "sandbox" ? "api.sandbox.push.apple.com" : "api.push.apple.com";
-			const payload = await buildApnsPayload(device, device.userId, message);
+			const payload = await buildApnsPayload(device, device.clientRef ?? device.userId, message);
 			const response = await fetch(`https://${host}/3/device/${device.token}`, {
 				method: "POST",
 				headers: {

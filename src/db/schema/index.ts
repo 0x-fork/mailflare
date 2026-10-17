@@ -611,10 +611,12 @@ export const pushDevices = sqliteTable(
 		/** Base64 raw P-256 public key; previews are encrypted to it. */
 		publicKey: text("public_key"),
 		previews: integer("previews", { mode: "boolean" }).notNull().default(true),
+		/** The app's own id for this account; echoed in pushes so a tap opens the right account. */
+		clientRef: text("client_ref"),
 		createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
 		updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
 	},
-	(table) => [uniqueIndex("push_devices_platform_token_idx").on(table.platform, table.token), index("push_devices_user_idx").on(table.userId)],
+	(table) => [uniqueIndex("push_devices_platform_token_user_idx").on(table.platform, table.token, table.userId), index("push_devices_user_idx").on(table.userId)],
 );
 
 export const pushSubscriptions = sqliteTable(
