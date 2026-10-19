@@ -2036,5 +2036,8 @@
 	"drive.noPreview": "No preview available for this file type.",
 	"drive.publicNotFound": "This link is not available. It may have been turned off or the file removed.",
 	"drive.sharedBy": "Shared by {name}",
-	"drive.save": "Save"
+	"drive.save": "Save",
+	"compose.cancelSend": "Cancel",
+	"compose.sendCancelled": "Sending cancelled. Message moved to Drafts.",
+	"compose.cancelTooLate": "Too late to cancel: the message is already being sent."
 }
