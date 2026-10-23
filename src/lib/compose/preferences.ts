@@ -1,10 +1,11 @@
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { getDb } from "@/db";
 import { userComposePreferences } from "@/db/schema";
-import { isMissingTableError } from "@/lib/database-errors";
+import { isMissingColumnError, isMissingTableError } from "@/lib/database-errors";
+import { DEFAULT_UNDO_SEND_SECONDS, parseUndoSendSeconds } from "./compose-utils";
 import type { ComposePreferences } from "./types";
 
-const DEFAULTS: ComposePreferences = { trackOpensDefault: false };
+const DEFAULTS: ComposePreferences = { trackOpensDefault: false, undoSendSeconds: DEFAULT_UNDO_SEND_SECONDS };
 
 export class ComposePreferencesUnavailableError extends Error {
 	constructor() {
@@ -12,31 +13,49 @@ export class ComposePreferencesUnavailableError extends Error {
 	}
 }
 
-/** The user's composer defaults; before migration 0072 everyone gets the defaults. */
+/** The user's composer defaults; missing migrations (0072, 0073) fall back to the defaults. */
 export async function getComposePreferences(env: CloudflareEnv, userId: string): Promise<ComposePreferences> {
+	const db = getDb(env);
 	try {
-		const [row] = await getDb(env)
-			.select({ trackOpensDefault: userComposePreferences.trackOpensDefault })
+		const [row] = await db
+			.select({ trackOpensDefault: userComposePreferences.trackOpensDefault, undoSendSeconds: userComposePreferences.undoSendSeconds })
 			.from(userComposePreferences)
 			.where(eq(userComposePreferences.userId, userId))
 			.limit(1);
-		return row ?? DEFAULTS;
+		if (!row) return DEFAULTS;
+		return { trackOpensDefault: row.trackOpensDefault, undoSendSeconds: parseUndoSendSeconds(row.undoSendSeconds) ?? DEFAULT_UNDO_SEND_SECONDS };
 	} catch (error) {
 		if (isMissingTableError(error)) return DEFAULTS;
-		throw error;
+		if (!isMissingColumnError(error)) throw error;
 	}
+	const [row] = await db
+		.select({ trackOpensDefault: userComposePreferences.trackOpensDefault })
+		.from(userComposePreferences)
+		.where(eq(userComposePreferences.userId, userId))
+		.limit(1);
+	return { ...DEFAULTS, trackOpensDefault: row?.trackOpensDefault ?? false };
 }
 
-export async function setComposePreferences(env: CloudflareEnv, userId: string, preferences: ComposePreferences): Promise<ComposePreferences> {
-	const values = { trackOpensDefault: preferences.trackOpensDefault, updatedAt: new Date() };
+export async function updateComposePreferences(env: CloudflareEnv, userId: string, patch: Partial<ComposePreferences>): Promise<ComposePreferences> {
+	const next = { ...(await getComposePreferences(env, userId)), ...patch };
+	const db = getDb(env);
+	const updatedAt = new Date();
 	try {
-		await getDb(env)
+		await db
 			.insert(userComposePreferences)
-			.values({ userId, ...values })
-			.onConflictDoUpdate({ target: userComposePreferences.userId, set: values });
+			.values({ userId, ...next, updatedAt })
+			.onConflictDoUpdate({ target: userComposePreferences.userId, set: { ...next, updatedAt } });
+		return next;
 	} catch (error) {
 		if (isMissingTableError(error)) throw new ComposePreferencesUnavailableError();
-		throw error;
+		if (!isMissingColumnError(error)) throw error;
 	}
-	return { trackOpensDefault: preferences.trackOpensDefault };
+	// Before migration 0073 only the read-receipt default can be stored.
+	if (next.undoSendSeconds !== DEFAULT_UNDO_SEND_SECONDS) throw new ComposePreferencesUnavailableError();
+	await db.run(sql`
+		INSERT INTO user_compose_preferences (user_id, track_opens_default, updated_at)
+		VALUES (${userId}, ${next.trackOpensDefault ? 1 : 0}, ${Math.floor(updatedAt.getTime() / 1000)})
+		ON CONFLICT (user_id) DO UPDATE SET track_opens_default = excluded.track_opens_default, updated_at = excluded.updated_at
+	`);
+	return next;
 }

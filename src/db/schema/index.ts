@@ -477,6 +477,7 @@ export const messageOpens = sqliteTable(
 export const userComposePreferences = sqliteTable("user_compose_preferences", {
 	userId: text("user_id").primaryKey().references(() => users.id, { onDelete: "cascade" }),
 	trackOpensDefault: integer("track_opens_default", { mode: "boolean" }).notNull().default(false),
+	undoSendSeconds: integer("undo_send_seconds").notNull().default(15),
 	updatedAt: integer("updated_at", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
 });
 

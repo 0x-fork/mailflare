@@ -449,6 +449,13 @@
       "when": 1792840800000,
       "tag": "0072_add_user_compose_preferences",
       "breakpoints": true
+    },
+    {
+      "idx": 65,
+      "version": "6",
+      "when": 1792844400000,
+      "tag": "0073_add_undo_send_seconds",
+      "breakpoints": true
     }
   ]
 }

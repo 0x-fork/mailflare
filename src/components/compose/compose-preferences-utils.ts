@@ -23,7 +23,7 @@ export function getCachedComposePreferences(): ComposePreferences | null {
 	return cached;
 }
 
-export async function updateComposePreferences(next: ComposePreferences): Promise<ComposePreferences> {
+export async function updateComposePreferences(next: Partial<ComposePreferences>): Promise<ComposePreferences> {
 	const response = await authFetch("/api/settings/compose", {
 		method: "PATCH",
 		headers: { "Content-Type": "application/json" },
@@ -31,6 +31,6 @@ export async function updateComposePreferences(next: ComposePreferences): Promis
 	});
 	const data = (await response.json().catch(() => null)) as (ComposePreferences & { error?: string; code?: string }) | null;
 	if (!response.ok || !data) throw new Error(data?.code === "MIGRATION_REQUIRED" ? "MIGRATION_REQUIRED" : data?.error ?? "Failed to save composer settings");
-	cached = { trackOpensDefault: data.trackOpensDefault };
+	cached = { trackOpensDefault: data.trackOpensDefault, undoSendSeconds: data.undoSendSeconds };
 	return cached;
 }
