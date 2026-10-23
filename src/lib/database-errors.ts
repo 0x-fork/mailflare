@@ -20,6 +20,11 @@ export function isMissingTableError(error: unknown): boolean {
 	return errorChainMatches(error, /no such table/i);
 }
 
+/** A column added by a migration that may not be applied yet. */
+export function isMissingColumnError(error: unknown): boolean {
+	return errorChainMatches(error, /no such column|has no column named/i);
+}
+
 export function isUniqueConstraintError(error: unknown): boolean {
 	return errorChainMatches(error, /UNIQUE constraint failed/i);
 }
