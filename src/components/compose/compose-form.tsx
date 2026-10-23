@@ -403,11 +403,9 @@ export function ComposeForm({
 			return;
 		}
 
-		if (currentDraftId) {
-			void authFetch(`/api/drafts/${currentDraftId}`, { method: "DELETE" }).finally(() => {
-				window.dispatchEvent(new Event("mailflare:messages-changed"));
-			});
-		}
+		// With a draft, refresh once it is gone so the lists reload a single time.
+		const refreshLists = () => window.dispatchEvent(new Event("mailflare:messages-changed"));
+		if (currentDraftId) void authFetch(`/api/drafts/${currentDraftId}`, { method: "DELETE" }).finally(refreshLists);
 		draftGeneration.current += 1;
 		draftIdRef.current = null;
 		setDraftId(null);
@@ -435,7 +433,7 @@ export function ComposeForm({
 		} else {
 			showNotice(data.scheduled ? t("compose.scheduled") : t("compose.sent"));
 		}
-		window.dispatchEvent(new Event("mailflare:messages-changed"));
+		if (!currentDraftId) refreshLists();
 
 		if (onClose) {
 			dismiss();
