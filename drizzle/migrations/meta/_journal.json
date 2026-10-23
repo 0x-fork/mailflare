@@ -414,6 +414,20 @@
       "when": 1789023605023,
       "tag": "0066_add_domain_dns_skipped",
       "breakpoints": true
+    },
+    {
+      "idx": 60,
+      "version": "6",
+      "when": 1792830000000,
+      "tag": "0068_add_message_tracking",
+      "breakpoints": true
+    },
+    {
+      "idx": 61,
+      "version": "6",
+      "when": 1792833600000,
+      "tag": "0069_add_domain_tracking_hosts",
+      "breakpoints": true
     }
   ]
 }
