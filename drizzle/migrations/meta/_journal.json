@@ -435,6 +435,13 @@
       "when": 1792836000000,
       "tag": "0070_add_spam_intelligence_settings",
       "breakpoints": true
+    },
+    {
+      "idx": 63,
+      "version": "6",
+      "when": 1792837200000,
+      "tag": "0071_add_follow_ups",
+      "breakpoints": true
     }
   ]
 }
