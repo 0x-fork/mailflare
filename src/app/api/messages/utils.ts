@@ -11,6 +11,48 @@ export function getMessageListColumns(): MessageListColumns {
 /** Select one newest matching message per thread before applying pagination. */
 export async function loadConversationPage({ db, where, offset, limit }: ConversationPageInput): Promise<ConversationPage> {
 	const threadKey = sql<string>`coalesce(${messages.threadId}, ${messages.id})`;
+
+	// A conversation sorts by its newest matching message, so the first page of
+	// heads is just the first occurrence of each thread key while scanning
+	// messages newest-first — an index-ordered walk instead of a window
+	// function over the whole result set. Threads are usually a handful of
+	// messages, so one or two small batches fill a page.
+	const needed = offset + limit;
+	const headIds: string[] = [];
+	const seen = new Set<string>();
+	let fetched = 0;
+	let exhausted = false;
+	// Dense threads (e.g. long mailing-list replies) make the scan collect many
+	// rows per head; past this cap the window query below is the better plan.
+	const SCAN_CAP = Math.max(5000, needed * 40);
+	while (headIds.length < needed && !exhausted && fetched < SCAN_CAP) {
+		const batch = Math.min(1000, Math.max(200, needed * 4));
+		const rows = await db
+			.select({ id: messages.id, key: threadKey })
+			.from(messages)
+			.where(where)
+			.orderBy(desc(messages.createdAt), desc(messages.id))
+			.limit(batch)
+			.offset(fetched);
+		fetched += rows.length;
+		if (rows.length < batch) exhausted = true;
+		for (const row of rows) {
+			if (seen.has(row.key)) continue;
+			seen.add(row.key);
+			headIds.push(row.id);
+		}
+	}
+	// Only reachable on degenerate thread shapes; keep the old plan as the
+	// correctness net rather than walking the table forever.
+	if (!exhausted && headIds.length < needed) {
+		return loadConversationPageWindowed({ db, where, offset, limit });
+	}
+	const [totals] = await db.select({ total: countDistinct(threadKey) }).from(messages).where(where);
+	return { ids: headIds.slice(offset, offset + limit), total: totals?.total ?? 0 };
+}
+
+async function loadConversationPageWindowed({ db, where, offset, limit }: ConversationPageInput): Promise<ConversationPage> {
+	const threadKey = sql<string>`coalesce(${messages.threadId}, ${messages.id})`;
 	const ranked = db
 		.select({
 			id: messages.id,
