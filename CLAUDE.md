@@ -2,6 +2,8 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+> **Schema or migration change? Update all three dialects (SQLite, PostgreSQL, MySQL).** See "Database schema changes" in AGENTS.md and "Schema and migrations" below.
+
 ## Commands
 
 ```bash

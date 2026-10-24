@@ -129,6 +129,7 @@ Add your Cloudflare credentials to `.dev.vars`, then open [http://localhost:3000
 
 The Cloudflare app uses Vite+, vinext, and the Cloudflare Vite plugin, with local D1, R2, Queues, and Durable Objects. Remote bindings are off by default. To use Workers AI locally, log in with Wrangler, set `CLOUDFLARE_ACCOUNT_ID`, and run `CLOUDFLARE_REMOTE_BINDINGS=true npm run dev`.
 
+- Changing the database schema means a migration for each dialect: `npm run db:generate`, `db:generate:pg` and `db:generate:mysql`, then `npm run db:bundle`. See [Databases](docs/databases.md#migrations).
 - `npm run build`: build the full Worker.
 - `npm run start`: preview that build locally.
 - `npm run deploy`: build and deploy.
