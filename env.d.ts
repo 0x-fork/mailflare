@@ -1,5 +1,13 @@
 interface CloudflareEnv {
 	DB: D1Database;
+	/** Connection string for an external database (PostgreSQL, MySQL, libSQL, ...); unset keeps D1. See docs/databases.md. */
+	DATABASE_URL?: string;
+	/** Driver override when it cannot be inferred from DATABASE_URL (neon, postgres-js, pglite, planetscale, ...). */
+	DATABASE_DRIVER?: string;
+	/** Auth token for libSQL / Turso. */
+	DATABASE_AUTH_TOKEN?: string;
+	/** Hyperdrive binding, used as the connection string when DATABASE_URL is unset. */
+	HYPERDRIVE?: { connectionString: string };
 	EMAIL: SendEmail;
 	BUCKET: R2Bucket;
 	INBOUND_QUEUE: Queue<import("./src/lib/email/inbound").InboundQueueMessage>;

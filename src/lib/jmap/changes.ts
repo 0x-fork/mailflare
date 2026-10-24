@@ -1,6 +1,7 @@
 import { and, asc, eq, gt, inArray, sql } from "drizzle-orm";
 import { getDb, type AppDatabase } from "@/db";
 import { jmapChangeFloor, jmapChanges, messages } from "@/db/schema";
+import { greatest } from "@/db/sql";
 import { listFoldersByMailbox, listJmapMailboxes } from "./access";
 import { encodeMailboxRef, SYSTEM_ROLES } from "./ids";
 import type { AccessibleMailbox, JmapContext } from "./types";
@@ -200,7 +201,7 @@ export async function pruneJmapChanges(db: AppDatabase, now = Date.now()): Promi
 	const [row] = await db.all<{ seq: number | null }>(sql`SELECT max(seq) AS seq FROM jmap_changes WHERE created_at < ${cutoff}`);
 	const floor = row?.seq ?? 0;
 	if (!floor) return 0;
-	await db.run(sql`UPDATE jmap_change_floor SET seq = max(seq, ${floor}) WHERE id = 1`);
+	await db.run(sql`UPDATE jmap_change_floor SET seq = ${greatest(sql`seq`, floor)} WHERE id = 1`);
 	const deleted = await db.run(sql`DELETE FROM jmap_changes WHERE seq <= ${floor}`);
 	return Number((deleted as { meta?: { changes?: number } }).meta?.changes ?? 0);
 }

@@ -167,7 +167,7 @@ export async function GET(request: Request) {
 				.select({
 					threadId: messages.threadId,
 					total: count(),
-					unread: sum(sql`case when ${messages.read} = 0 then 1 else 0 end`),
+					unread: sum(sql`case when ${messages.read} then 0 else 1 end`),
 				})
 				.from(messages)
 				.where(and(scope, inArray(messages.threadId, threadIds), isNotNull(messages.threadId), notInArray(messages.status, ["draft", "trash"])))

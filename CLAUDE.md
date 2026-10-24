@@ -2,6 +2,8 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+> **Schema or migration change? Update all three dialects (SQLite, PostgreSQL, MySQL).** See "Database schema changes" in AGENTS.md and "Schema and migrations" below.
+
 ## Commands
 
 ```bash
@@ -9,7 +11,10 @@ npm run dev                    # Vite + vinext in local workerd
 npm run lint                   # eslint (next/core-web-vitals + next/typescript)
 npm run build                  # vinext build, including the complete Worker
 
-npm run db:generate            # drizzle-kit generate from src/db/schema/index.ts
+npm run db:generate            # drizzle-kit generate (SQLite) from src/db/schema/index.ts
+npm run db:generate:pg         # same schema, PostgreSQL -> drizzle/migrations-pg
+npm run db:generate:mysql      # same schema, MySQL -> drizzle/migrations-mysql
+npm run db:smoke -- <DATABASE_URL> [driver]   # exercises migrations + query shapes on any database (MAILFLARE_DB_DIALECT must match)
 npm run db:migrate:local       # wrangler d1 migrations apply DB --local
 npm run db:migrate:remote      # --remote (needs a concrete database_id in wrangler.jsonc)
 npm run db:seed                # POST /api/seed against localhost:3000
@@ -28,7 +33,7 @@ There is no test script in `package.json`; the checks under `tests/` are `node:t
 
 ## Architecture
 
-Next.js App Router APIs running on Cloudflare Workers via vinext. Drizzle ORM over D1, R2 for raw MIME, attachments, and record backups, Queues for async mail processing, a Durable Object for realtime, and a cron trigger for scheduled backups.
+Next.js App Router APIs running on Cloudflare Workers via vinext. Drizzle ORM over D1 by default (or PostgreSQL, MySQL, libSQL via `DATABASE_URL`), R2 for raw MIME, attachments, and record backups, Queues for async mail processing, a Durable Object for realtime, and a cron trigger for scheduled backups.
 
 ### worker.ts is the entrypoint
 
@@ -81,11 +86,22 @@ Consequence: `CF_EMAIL_WORKER_NAME`, the deployed Worker `name`, and `services[]
 
 Auth is `CF_TOKEN` (preferred) or the legacy `CF_EMAIL` + `CF_API_KEY` pair.
 
-### Schema and the dual-migration gotcha
+### The database is D1 unless `DATABASE_URL` says otherwise
 
-Schema lives in one file: `src/db/schema/index.ts` (21 tables). Migrations are generated into `drizzle/migrations/`. Note that `drizzle-kit generate` currently prompts interactively about a snapshot rename conflict, so recent migrations were hand-written to match the generated style.
+`docs/databases.md` is the user-facing reference; this is how it works.
 
-`npm run db:bundle` packages the SQL files for the Worker. `/api/setup/prepare` and the admin migration endpoint use the shared runner in `src/lib/migrations/service.ts`; migration files remain the only schema history to maintain. Build, deploy, preview, and development scripts generate the bundle before loading application code.
+- **Selection.** `resolveDatabaseConfig` (`src/db/dialect.ts`, pure) maps `DATABASE_URL` (+ `DATABASE_DRIVER`, `DATABASE_AUTH_TOKEN`, or a `HYPERDRIVE` binding) to a dialect (`sqlite | postgres | mysql`) and driver. No URL means D1 on Workers or the better-sqlite3 file when self-hosted, exactly as before. `withDatabase(env)` (`src/db/with-database.ts`, applied next to `withStorage` in `getEnv()`, each `worker.ts` handler and the Node env) replaces `env.DB` with an `ExternalDatabase`; every caller still reads `env.DB`.
+- **One schema, three dialects.** `src/db/schema/index.ts` is written against a kit (`schema/kits.ts`): `table`, `text`, `integer`, `bool`, `timestamp`, `autoId`, `index`, `uniqueIndex`, `desc`, `nowSeconds`. `schemaDialect()` picks the real builders when the module is first imported (from `process.env`, which Workers populate from vars; `MAILFLARE_DB_DIALECT` forces it for tooling), so only one dialect's tables exist per process. The exported tables are *typed* as SQLite whichever dialect is active; that is deliberate, because the app only uses query-builder calls all three share. Representation is kept identical across dialects so raw SQL stays portable: timestamps are seconds in a `bigint`, integers are `bigint`, booleans are native. MySQL needs VARCHAR for anything indexed, so `text()` there returns a recorder resolved in `table()` once the index callback shows which columns are keys; wide indexes are trimmed to InnoDB's 3072 bytes, expression key parts and `uniqueIndex().where()` degrade (see docs).
+- **Drivers are executors.** `src/db/drivers/*` turn `(sql, params)` into rows, lazily importing the package (`pg`, `postgres`, `@neondatabase/serverless`, `@electric-sql/pglite` (Node only), `mysql2`, `@planetscale/database`, `@libsql/client`, better-sqlite3, bun:sqlite). `external.ts` feeds an executor to drizzle's `pg-proxy` / `mysql-proxy` / `sqlite-proxy` and to `CompatDatabase` (`d1-compat.ts`), the D1-shaped `prepare().bind().run/first/all`, `batch`, which keeps the ~25 raw `env.DB.prepare` call sites working (`?` becomes `$n` for PostgreSQL). Workers cannot reuse sockets across requests, so TCP drivers connect per query unless `shared` (Node).
+- **`compat.ts` keeps the SQLite-shaped API.** It adds `db.run/all/get/values/batch` to PostgreSQL/MySQL instances, and on MySQL shims `insert().onConflictDoNothing/DoUpdate().returning()`, `update().returning()`, `delete().returning()` (ON DUPLICATE KEY UPDATE plus a select by primary key; claims rely on the affected-row count, so mysql2 keeps `FOUND_ROWS` semantics).
+- **Dialect-specific SQL lives in `src/db/sql.ts`** (`insensitiveLike`, `excluded`, `greatest`, `charIndex`, `concatText`, `matchNothing`, `escapeLike`) and `src/db/introspect.ts` (`listTableNames`, `listColumnNames`, `quoteIdentifier`). New raw SQL must work on all three: no bare `0`/`1` as a boolean (`WHERE 1 = 0`), no `x = 0` on boolean columns (`NOT x` / `case when x`), no `||` for strings on MySQL, quote reserved words (`key`, `read`, `repeat`, `change`) via `sql.identifier` or drizzle columns, no `ON CONFLICT ... DO UPDATE SET col = col + 1` in raw SQL (use `onConflictDoUpdate` with `sql\`${table.col} + 1\``). Error text matching goes through `src/lib/database-errors.ts`, which knows all three vocabularies.
+- **Search.** SQLite keeps the FTS5 index below; PostgreSQL and MySQL have no index and `buildSearchConditions` falls back to case-insensitive substring `LIKE` predicates (pg_trgm GIN indexes are added to PostgreSQL when the extension is allowed).
+
+### Schema and migrations
+
+Schema lives in one file: `src/db/schema/index.ts` (about 60 tables). Each dialect has its own migration directory and bundle: `drizzle/migrations/` (SQLite, full history, ledger `d1_migrations`), `drizzle/migrations-pg/` and `drizzle/migrations-mysql/` (a generated `0000_baseline` plus the hand-written `0001_triggers_and_seeds`, ledger `mailflare_migrations`). **A schema change needs a migration in all three**, plus its trigger/seed twin when it touches `messages`, `folders`, `mailboxes` or `mailbox_aliases`; `tests/database-dialects.test.mjs` fails when the dialects diverge or a bundle is stale. Note that `drizzle-kit generate` currently prompts interactively about a snapshot rename conflict for SQLite, so recent SQLite migrations were hand-written to match the generated style.
+
+`npm run db:bundle` packages the SQL files for the Worker (`src/lib/migrations/bundle.json`, `bundle-postgres.json`, `bundle-mysql.json`). `/api/setup/prepare`, the admin migration endpoint and (self-hosted, non-SQLite) server start use the shared runner in `src/lib/migrations/service.ts`. PostgreSQL and MySQL bundles split only on `--> statement-breakpoint`, because function and trigger bodies contain semicolons. Build, deploy, preview, and development scripts generate the bundle before loading application code.
 
 The setup path only ever initializes an empty database — it refuses to touch one that already has tables.
 
@@ -105,7 +121,7 @@ The app reaches every platform service through `getEnv()` (`src/lib/cloudflare.t
 
 `processRequest` memoizes the accessible mailboxes and the change scope on `ctx.memo` across read-only calls of one request; write methods run with `memo: null` because they read `oldState` and `newState` in the same call.
 
-States are positions in a change log (`changes.ts`): the `jmap_changes_*` triggers of migration 0064 write a row per created, updated or destroyed message and per folder or mailbox change into `jmap_changes`, so `Email/changes`, `Mailbox/changes` and `Thread/changes` return real deltas (`Email/queryChanges` still answers `cannotCalculateChanges`). A state is `c1:<seq>:<access fingerprint>`; a sharing change alters the fingerprint, and the daily cron prunes rows older than 30 days and raises `jmap_change_floor`, and either makes older states answer `cannotCalculateChanges`. Like `jmap_mailbox_revisions`, these tables are derived and excluded from backups. Never write to them from application code.
+States are positions in a change log (`changes.ts`): the `jmap_changes_*` triggers of migration 0064 (PostgreSQL and MySQL: `0001_triggers_and_seeds`) write a row per created, updated or destroyed message and per folder or mailbox change into `jmap_changes`, so `Email/changes`, `Mailbox/changes` and `Thread/changes` return real deltas (`Email/queryChanges` still answers `cannotCalculateChanges`). A state is `c1:<seq>:<access fingerprint>`; a sharing change alters the fingerprint, and the daily cron prunes rows older than 30 days and raises `jmap_change_floor`, and either makes older states answer `cannotCalculateChanges`. Like `jmap_mailbox_revisions`, these tables are derived and excluded from backups. Never write to them from application code.
 
 ### Mobile apps: device keys and native push
 
@@ -141,7 +157,7 @@ Optional tables are detected with `isMissingTableError` (`src/lib/database-error
 
 ### Search is an FTS5 index kept by triggers
 
-`messages_fts` (migration 0030) is an external-content FTS5 table over `messages`; three triggers in the same migration keep it in sync on insert, update and delete, so no application code touches the index. `buildSearchConditions` in `src/lib/search/conditions.ts` turns the Gmail-style grammar (`src/lib/search/query-utils.ts`) into a `rowid IN (SELECT rowid FROM messages_fts WHERE messages_fts MATCH ?)` predicate plus plain column filters. Two consequences: the bootstrap SQL in `src/lib/setup/migration.ts` is split with `splitSqlStatements`, which keeps trigger bodies whole; and the backup coverage check skips `messages_fts%`, since the shadow tables are derived and repopulate on restore. `wrangler d1 export` does not work on databases with virtual tables; the app's own JSON backup is unaffected.
+`messages_fts` (migration 0030) is an external-content FTS5 table over `messages` (SQLite only; other dialects use the `LIKE` fallback in `conditions.ts`); three triggers in the same migration keep it in sync on insert, update and delete, so no application code touches the index. `buildSearchConditions` in `src/lib/search/conditions.ts` turns the Gmail-style grammar (`src/lib/search/query-utils.ts`) into a `rowid IN (SELECT rowid FROM messages_fts WHERE messages_fts MATCH ?)` predicate plus plain column filters. Two consequences: the bootstrap SQL in `src/lib/setup/migration.ts` is split with `splitSqlStatements`, which keeps trigger bodies whole; and the backup coverage check skips `messages_fts%`, since the shadow tables are derived and repopulate on restore. `wrangler d1 export` does not work on databases with virtual tables; the app's own JSON backup is unaffected.
 
 ### Access control
 

@@ -1,7 +1,8 @@
 /**
  * Whether any error in the chain has a message matching `pattern`. Drizzle
- * wraps driver errors as "Failed query: …" and keeps the SQLite message on
- * `cause`, so checking only the outer message misses it.
+ * wraps driver errors as "Failed query: …" and keeps the driver message on
+ * `cause`, so checking only the outer message misses it. The patterns cover
+ * SQLite/D1, PostgreSQL and MySQL wording.
  */
 function errorChainMatches(error: unknown, pattern: RegExp): boolean {
 	let current: unknown = error;
@@ -17,14 +18,14 @@ function errorChainMatches(error: unknown, pattern: RegExp): boolean {
 
 /** The table does not exist yet, for features whose migration may not be applied. */
 export function isMissingTableError(error: unknown): boolean {
-	return errorChainMatches(error, /no such table/i);
+	return errorChainMatches(error, /no such table|relation "[^"]+" does not exist|table '[^']+' doesn't exist/i);
 }
 
 /** A column added by a migration that may not be applied yet. */
 export function isMissingColumnError(error: unknown): boolean {
-	return errorChainMatches(error, /no such column|has no column named/i);
+	return errorChainMatches(error, /no such column|has no column named|column "[^"]+" (of relation "[^"]+" )?does not exist|unknown column/i);
 }
 
 export function isUniqueConstraintError(error: unknown): boolean {
-	return errorChainMatches(error, /UNIQUE constraint failed/i);
+	return errorChainMatches(error, /UNIQUE constraint failed|duplicate key value violates unique constraint|duplicate entry/i);
 }
