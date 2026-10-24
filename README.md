@@ -41,7 +41,7 @@ Want to support the mailflare? <a target="_blank" href="https://store.paymug.co/
 
 Mailflare runs in your Cloudflare account. By default, Cloudflare Email Routing delivers incoming mail to the app, and Cloudflare's email service sends outgoing mail. Each domain can also receive or send through Resend or Amazon SES. Cloudflare still manages the DNS.
 
-Your mail stays in your own D1 database, and attachments stay in your own R2, Backblaze B2 or AWS S3 bucket, whichever provider you use. See [Sending and receiving providers](docs/providers.md).
+Your mail stays in your own D1 database (or PostgreSQL, MySQL or libSQL if you set `DATABASE_URL`; see [Databases](docs/databases.md)), and attachments stay in your own R2, Backblaze B2 or AWS S3 bucket, whichever provider you use. See [Sending and receiving providers](docs/providers.md).
 
 ## Cost
 
@@ -145,6 +145,7 @@ To add a language, create `public/locales/<code>.json` with the same keys as `sr
 ## Documentation
 
 - [Deployment and configuration](docs/deployment.md)
+- [Databases: D1 (default), Turso/libSQL, PostgreSQL, MySQL and more](docs/databases.md)
 - [Sending and receiving providers (Cloudflare, Resend, Amazon SES)](docs/providers.md)
 - [API and integrations](docs/api.md), including the [calendar and booking APIs](docs/api.md#calendar-and-booking)
 - [Email assistant and MCP](docs/email-assistant-and-mcp.md)

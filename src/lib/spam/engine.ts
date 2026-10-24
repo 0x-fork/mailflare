@@ -1,6 +1,7 @@
 import { and, eq, inArray, sql } from "drizzle-orm";
 import type { AppDatabase } from "@/db";
 import { contacts, domains, spamReputation } from "@/db/schema";
+import { charIndex } from "@/db/sql";
 import { getEmailAddress } from "@/lib/email/address";
 import { analyzeAuthentication } from "./analyzers/authentication";
 import { analyzeImpersonation } from "./analyzers/impersonation";
@@ -18,7 +19,7 @@ const MAX_KNOWN_DOMAINS = 2000;
 
 /** Domains a lookalike sender would imitate: ones the user wrote to or saved, and the instance's own. */
 async function listKnownDomains(db: AppDatabase, userId: string): Promise<string[]> {
-	const contactDomain = sql<string>`lower(substr(${contacts.email}, instr(${contacts.email}, '@') + 1))`;
+	const contactDomain = sql<string>`lower(substr(${contacts.email}, ${charIndex(contacts.email, "@")} + 1))`;
 	const [contactRows, ownRows] = await Promise.all([
 		db.selectDistinct({ domain: contactDomain }).from(contacts)
 			.where(and(eq(contacts.userId, userId), inArray(contacts.source, ["outbound", "manual"])))

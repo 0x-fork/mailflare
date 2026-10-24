@@ -1,3 +1,5 @@
+import { dialectOf, listColumnNames, listTableNames, quoteIdentifier } from "@/db/introspect";
+import type { DatabaseDialect } from "@/db/dialect";
 import type { BackupTableGroupId, DatabaseBackupDocument, DatabaseBackupTable, DatabaseRecord } from "./types";
 import { mergeLegacyMessageBodies } from "./utils";
 import { BACKUP_TABLE_GROUPS, getSelectedBackupTables } from "./table-groups";
@@ -21,12 +23,15 @@ export function getBackupConfigurationStatus(_env?: CloudflareEnv) {
  * Tables D1 manages itself, which are intentionally absent from BACKUP_TABLES.
  */
 export const INTERNAL_TABLE_PATTERNS = ["sqlite_%", "_cf%", "messages_fts%"];
+const matchesPattern = (name: string, pattern: string) => name.startsWith(pattern.replace(/%$/, ""));
 /**
  * The search index is derived data: its triggers repopulate it as messages are
  * restored, so it is neither exported nor part of the coverage check.
  */
 export const INTERNAL_TABLES = [
 	"d1_migrations",
+	// The migration ledger of PostgreSQL and MySQL databases.
+	"mailflare_migrations",
 	// JMAP state counters, also derived: the jmap_messages_* triggers on
 	// `messages` insert and bump a row per mailbox as messages are restored.
 	// Exporting it would make restore fail, since the triggers recreate these
@@ -60,24 +65,19 @@ function groupsForDocumentVersion(version: DatabaseBackupDocument["version"]): t
  * that omit it, and the omission only surfaces during a restore.
  */
 export async function assertBackupTablesCoverDatabase(db: D1Database): Promise<Set<string>> {
-	const conditions = [
-		...INTERNAL_TABLE_PATTERNS.map((pattern) => `name NOT LIKE '${pattern}'`),
-		...INTERNAL_TABLES.map((name) => `name <> '${name}'`),
-	].join(" AND ");
-	const result = await db
-		.prepare(`SELECT name FROM sqlite_master WHERE type = 'table' AND ${conditions}`)
-		.all<{ name: string }>();
+	const names = [...(await listTableNames(db))].filter((name) => !INTERNAL_TABLE_PATTERNS.some((pattern) => matchesPattern(name, pattern)) && !INTERNAL_TABLES.includes(name));
 	const covered = new Set<string>(BACKUP_TABLES);
-	const unlisted = result.results.map((row) => row.name).filter((name) => !covered.has(name));
+	const unlisted = names.filter((name) => !covered.has(name));
 	if (unlisted.length) throw new Error(`Backup aborted: ${unlisted.join(", ")} not listed in BACKUP_TABLES. Add new tables to src/lib/backups/export.ts and assign each to a group in table-groups.ts.`);
 	const assigned = BACKUP_TABLE_GROUPS.flatMap((group) => group.tables);
 	const ungrouped = BACKUP_TABLES.filter((table) => assigned.filter((item) => item === table).length !== 1);
 	const unknown = assigned.filter((table) => !covered.has(table));
 	if (ungrouped.length || unknown.length) throw new Error(`Backup aborted: table groups are out of sync (${[...ungrouped, ...unknown].join(", ")}). Update src/lib/backups/table-groups.ts.`);
-	return new Set(result.results.map((row) => row.name));
+	return new Set(names);
 }
 
 export async function exportDatabaseRecords(db: D1Database, excludedGroups: BackupTableGroupId[] = []): Promise<Uint8Array> {
+	const dialect = dialectOf(db);
 	const databaseTables = await assertBackupTablesCoverDatabase(db);
 	const selected = getSelectedBackupTables(excludedGroups);
 	const includedTables = BACKUP_TABLES.filter((table) => selected.has(table));
@@ -89,7 +89,8 @@ export async function exportDatabaseRecords(db: D1Database, excludedGroups: Back
 			continue;
 		}
 		const result = await db.prepare(`SELECT * FROM ${table}`).all<DatabaseRecord>();
-		tables[table] = result.results;
+		// Backups hold SQLite-style values whichever database wrote them, so they restore anywhere.
+		tables[table] = dialect === "sqlite" ? result.results : result.results.map(toPortableRecord);
 	}
 	const document: DatabaseBackupDocument = { format: "mailflare-database-backup", version: 2, createdAt: new Date().toISOString(), includedTables, tables };
 	return new TextEncoder().encode(JSON.stringify(document));
@@ -103,30 +104,29 @@ export async function restoreDatabaseRecords(db: D1Database, content: ArrayBuffe
 	mergeLegacyMessageBodies(document);
 	fillMissingBackupTables(document);
 	validateDatabaseBackup(document);
-	const sharedLinksTable = await db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'shared_attachment_links'").first<{ name: string }>();
+	const dialect = dialectOf(db);
+	const existing = await listTableNames(db);
+	const sharedLinksTable = existing.has("shared_attachment_links");
 	if (!sharedLinksTable && document.tables.shared_attachment_links?.length) throw new Error("Apply pending database migrations before restoring shared attachment links.");
-	const bookingTable = await db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'booking_events'").first<{ name: string }>();
+	const bookingTable = existing.has("booking_events");
 	if (!bookingTable && document.tables.booking_events?.length) throw new Error("Apply pending database migrations before restoring booking events.");
 	// Drive migrations ship later than the backup format, so an installation can have a database without them yet.
-	const driveTableNames = (
-		await db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('drive_items', 'drive_upload_parts', 'drive_shares')").all<{ name: string }>()
-	).results.map((row) => row.name);
+	const driveTableNames = ["drive_items", "drive_upload_parts", "drive_shares"].filter((table) => existing.has(table));
 	if (["drive_items", "drive_upload_parts", "drive_shares"].some((table) => document.tables[table]?.length) && driveTableNames.length !== 3) throw new Error("Apply pending database migrations before restoring the Drive tables.");
-	const laterTableNames = (
-		await db.prepare(`SELECT name FROM sqlite_master WHERE type = 'table' AND name IN (${LATER_MIGRATION_TABLES.map(() => "?").join(", ")})`).bind(...LATER_MIGRATION_TABLES).all<{ name: string }>()
-	).results.map((row) => row.name);
+	const laterTableNames = LATER_MIGRATION_TABLES.filter((table) => existing.has(table));
 	const unmigrated = LATER_MIGRATION_TABLES.filter((table) => document.tables[table]?.length && !laterTableNames.includes(table));
 	if (unmigrated.length) throw new Error(`Apply pending database migrations before restoring ${unmigrated.join(", ")}.`);
 	const restoreTables = BACKUP_TABLES.filter((table) => (table !== "shared_attachment_links" || sharedLinksTable) && (table !== "booking_events" || bookingTable) && (!table.startsWith("drive_") || driveTableNames.includes(table)) && (!LATER_MIGRATION_TABLES.includes(table) || laterTableNames.includes(table)));
-	const userColumns = new Set((await db.prepare("PRAGMA table_info(users)").all<{ name: string }>()).results.map((column) => column.name));
-	const bookingColumns = bookingTable ? new Set((await db.prepare("PRAGMA table_info(booking_events)").all<{ name: string }>()).results.map((column) => column.name)) : null;
+	const userColumns = await listColumnNames(db, "users");
+	const bookingColumns = bookingTable ? await listColumnNames(db, "booking_events") : null;
 	for (const table of [...restoreTables].reverse()) await db.prepare(`DELETE FROM ${table}`).run();
 	for (const table of restoreTables) {
 		const rows = document.tables[table] ?? [];
 		for (let index = 0; index < rows.length; index += INSERT_BATCH_SIZE) {
 			const columns = table === "users" ? userColumns : table === "booking_events" ? bookingColumns : null;
-			const statements = rows.slice(index, index + INSERT_BATCH_SIZE).map((row) => createInsertStatement(db, table, row, columns));
-			if (statements.length > 0) await db.batch(statements);
+			const statements = rows.slice(index, index + INSERT_BATCH_SIZE).map((row) => createInsertStatement(db, dialect, table, row, columns));
+			// MySQL checks foreign keys per statement, so the batch suspends them for its own connection.
+			if (statements.length > 0) await db.batch(dialect === "mysql" ? [db.prepare("SET FOREIGN_KEY_CHECKS = 0"), ...statements, db.prepare("SET FOREIGN_KEY_CHECKS = 1")] : statements);
 		}
 	}
 }
@@ -152,11 +152,11 @@ function isDatabaseBackupDocument(value: unknown): value is DatabaseBackupDocume
 	});
 }
 
-function createInsertStatement(db: D1Database, table: DatabaseBackupTable, row: DatabaseRecord, availableColumns: Set<string> | null = null) {
+function createInsertStatement(db: D1Database, dialect: DatabaseDialect, table: DatabaseBackupTable, row: DatabaseRecord, availableColumns: Set<string> | null = null) {
 	const columns = Object.keys(row).filter((column) => !availableColumns || availableColumns.has(column));
 	if (columns.length === 0) throw new Error(`Backup contains an invalid ${table} record`);
 	const placeholders = columns.map(() => "?").join(", ");
-	const identifiers = columns.map((column) => `\`${column.replaceAll("`", "``")}\``).join(", ");
+	const identifiers = columns.map((column) => quoteIdentifier(dialect, column)).join(", ");
 	return db.prepare(`INSERT INTO ${table} (${identifiers}) VALUES (${placeholders})`).bind(...columns.map((column) => row[column]));
 }
 
@@ -178,4 +178,8 @@ function validateDatabaseBackup(document: DatabaseBackupDocument): void {
 			}
 		}
 	}
+}
+
+function toPortableRecord(row: DatabaseRecord): DatabaseRecord {
+	return Object.fromEntries(Object.entries(row).map(([column, value]) => [column, typeof value === "boolean" ? (value ? 1 : 0) : value])) as DatabaseRecord;
 }
