@@ -18,13 +18,18 @@ export async function loadConversationPage({ db, where, offset, limit }: Convers
 	// function over the whole result set. Threads are usually a handful of
 	// messages, so one or two small batches fill a page.
 	const needed = offset + limit;
+	// Constant bound: offset is client input, so the scan must never scale
+	// with it. Deep pages also can't be satisfied by the scan at all (heads
+	// can never outnumber fetched rows), so they take the windowed plan
+	// directly.
+	const SCAN_CAP = 10_000;
+	if (needed > SCAN_CAP) {
+		return loadConversationPageWindowed({ db, where, offset, limit });
+	}
 	const headIds: string[] = [];
 	const seen = new Set<string>();
 	let fetched = 0;
 	let exhausted = false;
-	// Dense threads (e.g. long mailing-list replies) make the scan collect many
-	// rows per head; past this cap the window query below is the better plan.
-	const SCAN_CAP = Math.max(5000, needed * 40);
 	while (headIds.length < needed && !exhausted && fetched < SCAN_CAP) {
 		const batch = Math.min(1000, Math.max(200, needed * 4));
 		const rows = await db
@@ -40,6 +45,12 @@ export async function loadConversationPage({ db, where, offset, limit }: Convers
 			if (seen.has(row.key)) continue;
 			seen.add(row.key);
 			headIds.push(row.id);
+		}
+		// Threads averaging more than ~10 messages per head make the scan pay
+		// ~10 rows per head — the windowed plan wins on that shape, so bail
+		// early rather than discovering it at the cap.
+		if (headIds.length < needed && headIds.length * 10 < fetched) {
+			return loadConversationPageWindowed({ db, where, offset, limit });
 		}
 	}
 	// Only reachable on degenerate thread shapes; keep the old plan as the
