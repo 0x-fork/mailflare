@@ -332,6 +332,17 @@ export const messages = sqliteTable(
 			t.createdAt,
 		),
 		index("messages_mailbox_thread_key_idx").on(t.mailboxId, sql`coalesce(${t.threadId}, ${t.id})`),
+		index("messages_nav_cover_idx").on(
+			t.mailboxId,
+			t.status,
+			t.folderId,
+			sql`${t.createdAt} desc`,
+			sql`${t.id} desc`,
+			t.direction,
+			t.read,
+			t.threadId,
+			t.snoozedUntil,
+		),
 		// Covering index for the folder-counts GROUP BY: lets the counts
 		// endpoint stream grouped rows straight off the index instead of
 		// sorting the whole table.
