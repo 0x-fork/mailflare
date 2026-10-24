@@ -1,11 +1,13 @@
 import { readFormDataBody } from "@/lib/http/request";
-import { parseImportDestination } from "@/lib/import/destination";
+import { DEFAULT_IMPORT_DESTINATION, parseImportDestination } from "@/lib/import/destination";
 import type { ImportDestination } from "@/lib/import/destination-types";
 import { splitMboxMessages } from "@/lib/import/mbox";
 import type { ImportMessageInput } from "@/lib/import/types";
 
 const MAX_IMPORT_REQUEST_SIZE = 25 * 1024 * 1024;
-const MAX_IMPORT_MESSAGES = 100;
+/** Without `background`, the request imports inline (the Takeout uploader), so it stays small. */
+const MAX_INLINE_IMPORT_MESSAGES = 100;
+const MAX_BACKGROUND_IMPORT_MESSAGES = 5000;
 
 function isMboxFile(filename: string, type: string): boolean {
 	const name = filename.toLowerCase();
@@ -44,12 +46,19 @@ function getMessageFlags(flags: ImportFileFlags, filename: string): Pick<ImportM
 export async function parseImportForm(request: Request): Promise<{
 	mailboxId: string;
 	destination: ImportDestination;
+	/** The destination as submitted, which the job stores and parses again. */
+	destinationValue: string;
+	filenames: string[];
+	/** Queue the import as a job instead of importing before responding. */
+	background: boolean;
 	messages: ImportMessageInput[];
 }> {
 	const form = await readFormDataBody(request, MAX_IMPORT_REQUEST_SIZE);
 	const mailboxId = String(form.get("mailboxId") ?? "");
 	const destination = parseImportDestination(form.get("destination"));
 	const flags = parseImportFlags(form.get("flags"));
+	const destinationValue = String(form.get("destination") ?? "") || DEFAULT_IMPORT_DESTINATION;
+	const background = form.get("background") === "1";
 	const files = form.getAll("files").filter((value): value is File => value instanceof File && value.size > 0);
 	const messages: ImportMessageInput[] = [];
 
@@ -68,5 +77,12 @@ export async function parseImportForm(request: Request): Promise<{
 		}
 	}
 
-	return { mailboxId, destination, messages: messages.slice(0, MAX_IMPORT_MESSAGES) };
+	return {
+		mailboxId,
+		destination,
+		destinationValue,
+		filenames: files.map((file) => file.name),
+		background,
+		messages: messages.slice(0, background ? MAX_BACKGROUND_IMPORT_MESSAGES : MAX_INLINE_IMPORT_MESSAGES),
+	};
 }

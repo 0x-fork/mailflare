@@ -477,6 +477,13 @@
       "when": 1792851600000,
       "tag": "0076_add_navigation_cover_index",
       "breakpoints": true
+    },
+    {
+      "idx": 69,
+      "version": "6",
+      "when": 1792855200000,
+      "tag": "0077_add_import_jobs",
+      "breakpoints": true
     }
   ]
 }
