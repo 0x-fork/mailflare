@@ -1,16 +1,13 @@
+import { getClientIp } from "./client-ip";
+
 /**
- * Client IP for rate-limit keys. On Workers, cf-connecting-ip is set by the
- * platform; self-hosted sits behind a reverse proxy, so fall back to the
- * proxy-set x-forwarded-for first hop. Without a real per-client key every
+ * Key rate limits by the resolved client IP. Without a per-client key every
  * visitor lands in one shared "unknown" bucket and scanners can lock out
- * legitimate logins.
+ * legitimate logins; trusting raw forwarding headers here would be worse —
+ * a client could rotate them to leave the bucket entirely.
  */
 function clientRateLimitKey(request: Request): string {
-	return (
-		request.headers.get("cf-connecting-ip")?.trim() ||
-		request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-		"unknown"
-	);
+	return getClientIp(request) ?? "unknown";
 }
 
 /** Mobile sign-ins have their own, stricter budget (they skip Turnstile). */
