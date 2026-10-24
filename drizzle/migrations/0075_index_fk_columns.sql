@@ -28,4 +28,5 @@ CREATE INDEX IF NOT EXISTS `agent_draft_meta_source_msg_idx` ON `agent_draft_met
 CREATE INDEX IF NOT EXISTS `agent_draft_metadata_mailbox_idx` ON `agent_draft_metadata` (`mailbox_id`);--> statement-breakpoint
 CREATE INDEX IF NOT EXISTS `agent_send_approvals_request_key_idx` ON `agent_send_approvals` (`request_key_id`);--> statement-breakpoint
 CREATE INDEX IF NOT EXISTS `agent_send_approvals_mailbox_idx` ON `agent_send_approvals` (`mailbox_id`);--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS `agent_send_approvals_draft_idx` ON `agent_send_approvals` (`draft_id`);--> statement-breakpoint
 CREATE INDEX IF NOT EXISTS `mcp_key_mailboxes_mailbox_idx` ON `mcp_key_mailboxes` (`mailbox_id`);

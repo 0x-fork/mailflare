@@ -1002,6 +1002,7 @@ export const agentSendApprovals = sqliteTable("agent_send_approvals", {
 	uniqueIndex("agent_send_approvals_delivery_idx").on(t.draftId).where(sql`status IN ('claimed', 'sent', 'unknown')`),
 	index("agent_send_approvals_request_key_idx").on(t.requestKeyId),
 	index("agent_send_approvals_mailbox_idx").on(t.mailboxId),
+	index("agent_send_approvals_draft_idx").on(t.draftId),
 ]);
 
 export const mcpKeyMailboxes = sqliteTable("mcp_key_mailboxes", {
