@@ -33,17 +33,24 @@ Want to support Mailflare? [Become a sponsor](https://store.paymug.co/buy/mailfl
 
 ## Features
 
-- **Custom domain emails**: Managed via your Cloudflare domains
-- **Mailboxes**: Rich-features mailbox, personal or shared, with access you control.
-- **Email**: Attachments, rich text, signatures, auto-replies, search, folders, snooze and spam filtering.
+### Apps
+
+- **Email**: Custom domain mailboxes, personal or shared, with access you control. Send and receive with Cloudflare Email, Resend or Amazon SES.
 - **Routing rules**: Store, forward, reject or sort incoming mail.
-- **Calendar and Booking**: Repeating events, invitations, and a public page for booking time with you.
-- **Drive**: Store and share files with Cloudflare D1, BackBlaze B2, or AWS S3
+- **Calendar**: Repeating events with time zones. Attendees get email invitations.
+- **Booking**: Share a public link so anyone can book a free time on your calendar.
+- **Drive**: Store and share files.
 - **AI agents**: Search mail, draft replies and manage events. Connect other AI tools over MCP.
+
+### Technical
+
+- **Databases**: Cloudflare D1 (default), PostgreSQL, MySQL, Turso / libSQL, or a local SQLite file. Set `DATABASE_URL` to switch. Works with Supabase, Neon, PlanetScale, TiDB and more. See [Databases](docs/databases.md).
+- **File storage**: Cloudflare R2, Backblaze B2 or AWS S3.
+- **Hosting**: Cloudflare Workers or a single Docker container.
 - **Admin**: Users, API keys, webhooks, audit logs and backups.
 - **Import**: Bring in mail from IMAP, Gmail Takeout, `.eml` and `.mbox` files.
 
-Support 34 languages, including English, Português (Brasil), Português (Portugal), Español, Français, Deutsch, Italiano, Nederlands, Polski, Українська, Русский, Türkçe, 中文（简体）, 日本語, 한국어, Bahasa Indonesia, Bahasa Melayu, Tiếng Việt, ไทย, हिन्दी, বাংলা, मराठी, తెలుగు, தமிழ், ગુજરાતી, ಕನ್ನಡ, മലയാളം, ਪੰਜਾਬੀ, සිංහල, Kiswahili, Hausa, plus العربية, اردو and فارسی (right-to-left).
+Mailflare currently supports 34 languages, including English, Português (Brasil), Português (Portugal), Español, Français, Deutsch, Italiano, Nederlands, Polski, Українська, Русский, Türkçe, 中文（简体）, 日本語, 한국어, Bahasa Indonesia, Bahasa Melayu, Tiếng Việt, ไทย, हिन्दी, বাংলা, मराठी, తెలుగు, தமிழ், ગુજરાતી, ಕನ್ನಡ, മലയാളം, ਪੰਜਾਬੀ, සිංහල, Kiswahili, Hausa, plus العربية, اردو and فارسی (right-to-left).
 
 ## Cost
 
