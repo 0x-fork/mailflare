@@ -279,7 +279,8 @@ export const routingRuleSchema = z.object({
 	mailboxId: z.string().min(1),
 	folderId: z.string().optional(),
 	destination: z.string().min(1).optional(),
-	forwardTo: z.string().email().optional(),
+	forwardTo: z.string().trim().email().optional(),
+	keepCopy: z.boolean().optional(),
 	priority: z.number().int().default(0),
 });
 

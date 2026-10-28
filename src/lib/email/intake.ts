@@ -11,7 +11,11 @@ import type { IntakeActions, IntakeInput, IntakeResult } from "@/lib/email/intak
  * callbacks, then store the raw MIME and enqueue it for parsing.
  */
 export async function intakeIncomingMail(env: CloudflareEnv, input: IntakeInput, actions: IntakeActions): Promise<IntakeResult> {
-	const decision = await resolveIncomingMail(env, input.from, input.to);
+	const alreadyForwarded = input.headers[MAILFLARE_FORWARDED_HEADER.toLowerCase()] === "1" || input.headers[MAILFLARE_FORWARDED_HEADER] === "1";
+	const decision = await resolveIncomingMail(env, input.from, input.to, {
+		subject: input.headers.subject,
+		alreadyForwarded,
+	});
 
 	if (decision?.action === "reject") {
 		const reason = decision.rejectReason ?? "Message rejected by routing rule";
@@ -26,7 +30,6 @@ export async function intakeIncomingMail(env: CloudflareEnv, input: IntakeInput,
 		if (forwarded && !decision.keepCopy) return { action: "forward", forwardedTo };
 	}
 
-	const alreadyForwarded = input.headers[MAILFLARE_FORWARDED_HEADER.toLowerCase()] === "1" || input.headers[MAILFLARE_FORWARDED_HEADER] === "1";
 	if (!alreadyForwarded) {
 		const destination = await getAccountForwardingDestination(env, input.to);
 		if (destination) await actions.forward?.(destination, { [MAILFLARE_FORWARDED_HEADER]: "1" });
