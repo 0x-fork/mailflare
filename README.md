@@ -2,13 +2,14 @@
 
 # Mailflare
 
-Mailflare is a self-hosted email inbox for custom domains, built on Cloudflare. Supports **Resend**, or **AWS SES**
+Mailflare is a self-hosted Google Workspace alternative, with **custom domain Emails**, **Calendar**, **Drive**, **Booking** and **built-in AI agents**. All runs on Cloudflare or Docker, supports different emails providers (Cloudflare Email, Resend, AWS SES), storage (Cloudflare R2, Backblaze B2, AWS S3), and database via Drizzle (Cloudflare D1, Postgres, Turso / any other SQL database that Drizzle support)
 
 [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/hieunc229/mailflare)
 
 ## Screenshots
 
 | ![Inbox](/screenshots/1.png)<br>Inbox | ![Manage domains](/screenshots/2.png)<br>Manage domains | ![Manage inboxes](/screenshots/3.png)<br>Manage inboxes |
+| ![Calendar](/screenshots/4.png)<br>Calendar | ![Booking](/screenshots/5.png)<br>Booking | ![Drive](/screenshots/6.png)<br>Drive |
 | --- | --- | --- |
 
 ### Featured sponsors
