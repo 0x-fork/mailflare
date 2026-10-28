@@ -2169,5 +2169,17 @@
 	"dnsSkipped.markDone": "I've set it up",
 	"compose.cancelSend": "Cancel",
 	"compose.sendCancelled": "Sending cancelled. Message moved to Drafts.",
-	"compose.cancelTooLate": "Too late to cancel: the message is already being sent."
+	"compose.cancelTooLate": "Too late to cancel: the message is already being sent.",
+	"calendar.reminder": "Reminder",
+	"calendar.reminder.none": "No reminder",
+	"calendar.reminder.m0": "At time of event",
+	"calendar.reminder.m5": "5 minutes before",
+	"calendar.reminder.m10": "10 minutes before",
+	"calendar.reminder.m15": "15 minutes before",
+	"calendar.reminder.m30": "30 minutes before",
+	"calendar.reminder.m60": "1 hour before",
+	"calendar.reminder.m120": "2 hours before",
+	"calendar.reminder.m1440": "1 day before",
+	"calendar.reminder.m2880": "2 days before",
+	"calendar.reminder.m10080": "1 week before"
 }
