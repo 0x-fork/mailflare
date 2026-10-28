@@ -60,9 +60,8 @@ export function AccountSettings() {
 				</div>
 				<div className="space-y-1 overflow-hidden rounded-3xl">
 					<ProfileForm
-						initialName={user.name}
+						accountName={user.name}
 						initialResetEmail={user.resetEmail ?? ""}
-						email={user.email}
 					/>
 
 					{user.canForwardEmail && (

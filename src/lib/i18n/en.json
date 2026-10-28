@@ -417,6 +417,7 @@
 	"common.name": "Name",
 	"common.cancel": "Cancel",
 	"common.loading": "Loading...",
+	"settings.account.switchInbox": "Switch inbox",
 	"settings.account.loadFailed": "Failed to load account",
 	"settings.account.detailsTitle": "Account details",
 	"settings.account.generalTitle": "General",
