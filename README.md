@@ -4,7 +4,7 @@
 
 # Mailflare
 
-A self-hosted alternative to Google Workspace. Email on your own domains, plus Calendar, Drive, Booking and built-in AI agents.
+A self-hosted alternative to Google Workspace. Setup **custom domain Emails**, **Calendar, Drive, Booking** and **built-in AI agents**.
 
 Run it on Cloudflare or Docker. Send and receive with Cloudflare, Resend or Amazon SES. Store files in R2, Backblaze B2 or AWS S3. Use D1, Postgres, MySQL or Turso for the database.
 
@@ -35,16 +35,17 @@ Want to support Mailflare? [Become a sponsor](https://store.paymug.co/buy/mailfl
 
 ## Features
 
-- **Domains**: Connect your Cloudflare domains. Pick Cloudflare, Resend or Amazon SES for each one.
-- **Mailboxes**: Personal or shared, with access you control.
+- **Custom domain emails**: Managed via your Cloudflare domains
+- **Mailboxes**: Rich-features mailbox, personal or shared, with access you control.
 - **Email**: Attachments, rich text, signatures, auto-replies, search, folders, snooze and spam filtering.
 - **Routing rules**: Store, forward, reject or sort incoming mail.
 - **Calendar and Booking**: Repeating events, invitations, and a public page for booking time with you.
-- **Drive**: Store and share files.
+- **Drive**: Store and share files with Cloudflare D1, BackBlaze B2, or AWS S3
 - **AI agents**: Search mail, draft replies and manage events. Connect other AI tools over MCP.
 - **Admin**: Users, API keys, webhooks, audit logs and backups.
 - **Import**: Bring in mail from IMAP, Gmail Takeout, `.eml` and `.mbox` files.
-- **34 languages**, including right-to-left.
+
+Support 34 languages, including English, Português (Brasil), Português (Portugal), Español, Français, Deutsch, Italiano, Nederlands, Polski, Українська, Русский, Türkçe, 中文（简体）, 日本語, 한국어, Bahasa Indonesia, Bahasa Melayu, Tiếng Việt, ไทย, हिन्दी, বাংলা, मराठी, తెలుగు, தமிழ், ગુજરાતી, ಕನ್ನಡ, മലയാളം, ਪੰਜਾਬੀ, සිංහල, Kiswahili, Hausa, plus العربية, اردو and فارسی (right-to-left).
 
 ## Cost
 
