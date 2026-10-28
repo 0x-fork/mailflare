@@ -72,7 +72,29 @@ New Amazon SES accounts start in a sandbox. Ask AWS for production access to lif
 > - All accounts: Email Sending:Edit, DNS Settings:Edit, Email Routing Addresses:Edit
 > - All zones: DNS Settings:Edit, Email Routing Rules:Edit, Zone Settings:Edit, DNS:Edit
 
-More options: [deployment guide](docs/deployment.md), [deploy with an AI coding agent](docs/deployment.md#deploy-with-an-ai-coding-agent).
+More options: [deployment guide](docs/deployment.md).
+
+### Deploy with an AI agent
+
+Paste this into an AI agent that has terminal access (Claude Code, Codex, Cursor and similar):
+
+```text
+Install Mailflare for me from https://github.com/hieunc229/mailflare on my Cloudflare account.
+
+1. Read README.md, docs/deployment.md and wrangler.jsonc first.
+2. Ask me for my Cloudflare account ID and two API tokens, using a secret input:
+   a deploy token (for Wrangler) and a runtime token (the Worker secret CF_TOKEN).
+   Never print them, commit them, or pass them as command arguments.
+3. Keep the Worker name exactly "mailflare". Create or reuse the D1 database
+   "mailflare", the R2 bucket "mailflare-raw", and the queues "mailflare-inbound",
+   "mailflare-outbound" and "mailflare-agent".
+4. Install dependencies, run `npm run deploy`, and set CF_TOKEN as a Worker secret.
+   Do not run remote database migrations yourself. The /setup page does that.
+5. Give me the app URL and anything I still need to do. I will open /setup, create
+   the admin account and connect my domain.
+```
+
+Token permissions and more options: [deployment guide](docs/deployment.md#deploy-with-an-ai-coding-agent).
 
 ### Self-host with Docker
 
